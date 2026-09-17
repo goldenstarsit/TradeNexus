@@ -10,7 +10,8 @@
     "test:m15": "node src/database/m15Verification.js",
     "test:unit": "tsx --test src/database/__tests__/*.test.ts",
     "test:integration": "tsx --test src/database/__tests__/database.integration.test.ts",
-    "test:failure": "tsx --test src/database/__tests__/database.failure.test.ts"
+    "test:failure": "tsx --test src/database/__tests__/database.failure.test.ts",
+    "test:replacement": "tsx --test src/database/__tests__/database.replacement.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
