@@ -1,7 +1,8 @@
-import "server-only";
+import type { DatabaseAdapter } from "./databaseAdapter";
 
-import { getDatabase } from "./databaseManager";
-
-export function runInTransaction<T>(callback: () => T): T {
-  return getDatabase().transaction(callback);
+export function runInTransaction<T>(
+  database: DatabaseAdapter,
+  callback: () => T,
+): T {
+  return database.transaction(callback);
 }

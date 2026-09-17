@@ -1,5 +1,3 @@
-import "server-only";
-
 import { SQLiteAdapter } from "./adapters/sqliteAdapter";
 import type { DatabaseAdapter } from "./databaseAdapter";
 

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:m15": "node src/database/m15Verification.js",
-    "test:unit": "tsx --test src/database/__tests__/*.test.ts"
+    "test:unit": "tsx --test src/database/__tests__/*.test.ts",
+    "test:integration": "tsx --test src/database/__tests__/database.integration.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

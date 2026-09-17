@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { DatabaseAdapter } from "../databaseAdapter";
 import { BaseRepository } from "./baseRepository";
 

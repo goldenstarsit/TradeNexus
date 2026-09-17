@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { SqlValue } from "../databaseAdapter";
 
 export interface Repository {
