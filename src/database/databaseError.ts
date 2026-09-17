@@ -1,5 +1,3 @@
-import "server-only";
-
 export class DatabaseError extends Error {
   readonly cause: unknown;
 

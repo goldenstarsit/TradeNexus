@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test:m15": "node src/database/m15Verification.js"
+    "test:m15": "node src/database/m15Verification.js",
+    "test:unit": "tsx --test src/database/__tests__/*.test.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
@@ -24,6 +25,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   },
   "packageManager": "pnpm@11.15.1"
