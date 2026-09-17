@@ -3,6 +3,7 @@ import type {
   DatabaseAdapter,
   RunResult,
   SqlValue,
+  TransactionMode,
 } from "../databaseAdapter";
 
 export class SQLiteAdapter implements DatabaseAdapter {
@@ -46,8 +47,29 @@ export class SQLiteAdapter implements DatabaseAdapter {
     return this.db.prepare(sql).all(...params) as T[];
   }
 
-  transaction<T>(callback: () => T): T {
-    return this.db.transaction(callback)();
+  transaction<T>(
+    callback: () => T,
+    mode: TransactionMode = "deferred",
+  ): T {
+    const transaction = this.db.transaction(callback);
+
+    switch (mode) {
+      case "deferred":
+        return transaction.deferred();
+
+      case "immediate":
+        return transaction.immediate();
+
+      case "exclusive":
+        return transaction.exclusive();
+
+      default: {
+        const exhaustiveMode: never = mode;
+        throw new Error(
+          `Unsupported transaction mode: ${String(exhaustiveMode)}`,
+        );
+      }
+    }
   }
 
   close(): void {

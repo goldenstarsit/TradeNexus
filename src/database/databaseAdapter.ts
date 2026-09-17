@@ -5,6 +5,11 @@ export interface RunResult {
   lastInsertRowid: number | bigint;
 }
 
+export type TransactionMode =
+  | "deferred"
+  | "immediate"
+  | "exclusive";
+
 export interface DatabaseAdapter {
   exec(sql: string): void;
 
@@ -25,6 +30,7 @@ export interface DatabaseAdapter {
 
   transaction<T>(
     callback: () => T,
+    mode?: TransactionMode,
   ): T;
 
   close(): void;
