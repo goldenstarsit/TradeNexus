@@ -23,7 +23,7 @@ const HTX_CAPABILITIES = createExchangeCapabilities("htx", [
   "orderHistory",
   "tradeHistory",
   "rateLimits",
-]);;
+]);
 
 function notImplemented(method: string): never {
   throw new Error(`HTX ${method} is not implemented yet`);
@@ -32,6 +32,7 @@ function notImplemented(method: string): never {
 export function createHtxPlugin(): ExchangePlugin {
   return {
     metadata: HTX_METADATA,
+    capabilities: HTX_CAPABILITIES,
     getSymbols: async (): Promise<readonly TradingSymbol[]> => [],
     getSymbol: async (): Promise<TradingSymbol | undefined> => undefined,
     getTicker: async () => notImplemented("getTicker"),

@@ -18,9 +18,9 @@ assert.strictEqual(plugin.capabilities, MEXC_CAPABILITIES);
 assert.strictEqual(plugin.metadata, MEXC_METADATA);
 assert.deepEqual(await plugin.getSymbols(), []);
 assert.equal(await plugin.getSymbol("BTCUSDT"), undefined);
-await assert.rejects(() => plugin.getTicker("BTCUSDT"), /MEXC market data is not implemented yet/);
-await assert.rejects(() => plugin.getBalance("USDT"), /MEXC account access is not implemented yet/);
-await assert.rejects(() => plugin.getOpenOrders("BTCUSDT"), /MEXC order management is not implemented yet/);
+await assert.rejects(() => plugin.getTicker("BTCUSDT"), /MEXC getTicker is not implemented yet/);
+await assert.rejects(() => plugin.getBalance("USDT"), /MEXC getBalance is not implemented yet/);
+await assert.rejects(() => plugin.getOpenOrders("BTCUSDT"), /MEXC getOpenOrders is not implemented yet/);
 console.log("M43 MEXC plugin foundation verification: OK");
 }
 

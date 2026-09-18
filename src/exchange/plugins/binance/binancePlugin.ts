@@ -1,8 +1,14 @@
 import type { ExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
 import { createExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
-import type { ExchangePlugin } from "../../plugin/exchangePlugin";
+import type { ExchangePlugin, ExchangeOrderRequest } from "../../plugin/exchangePlugin";
 import type { ExchangeMetadata } from "../../domain/exchangeMetadata";
 import type { TradingSymbol } from "../../domain/symbol";
+import type { MarketTicker, OrderBook } from "../../market-data/marketData";
+import type { BalanceSnapshot } from "../../balance/balance";
+import type { Order } from "../../order/order";
+import type { BinanceMarketDataClient } from "./binanceMarketData";
+import type { BinanceAccountClient } from "./binanceAccount";
+import type { BinanceOrderClient } from "./binanceOrder";
 
 const BINANCE_METADATA: ExchangeMetadata = {
   id: "binance",
@@ -27,9 +33,17 @@ const BINANCE_CAPABILITIES: ExchangeCapabilities = createExchangeCapabilities("b
   "rateLimits",
 ]);
 
+export interface BinancePluginClients {
+  readonly marketData: BinanceMarketDataClient;
+  readonly account: BinanceAccountClient;
+  readonly order: BinanceOrderClient;
+}
+
 export class BinancePlugin implements ExchangePlugin {
   readonly metadata = BINANCE_METADATA;
   readonly capabilities = BINANCE_CAPABILITIES;
+
+  constructor(private readonly clients: BinancePluginClients) {}
 
   async getSymbols(): Promise<readonly TradingSymbol[]> {
     return [];
@@ -39,36 +53,36 @@ export class BinancePlugin implements ExchangePlugin {
     return undefined;
   }
 
-  async getTicker(_symbol: string): Promise<unknown> {
-    throw new Error("Binance market data is not implemented yet");
+  async getTicker(symbol: string): Promise<MarketTicker> {
+    return this.clients.marketData.getTicker(symbol);
   }
 
-  async getOrderBook(_symbol: string, _limit?: number): Promise<unknown> {
-    throw new Error("Binance market data is not implemented yet");
+  async getOrderBook(symbol: string, limit?: number): Promise<OrderBook> {
+    return this.clients.marketData.getOrderBook(symbol, limit);
   }
 
-  async getBalance(_asset?: string): Promise<unknown> {
-    throw new Error("Binance account access is not implemented yet");
+  async getBalance(asset?: string): Promise<BalanceSnapshot> {
+    return this.clients.account.getBalances(asset);
   }
 
-  async getOpenOrders(_symbol?: string): Promise<readonly unknown[]> {
-    throw new Error("Binance order management is not implemented yet");
+  async getOpenOrders(symbol?: string): Promise<readonly Order[]> {
+    return this.clients.order.getOpenOrders(symbol);
   }
 
-  async getOrder(_orderId: string, _symbol: string): Promise<unknown> {
-    throw new Error("Binance order management is not implemented yet");
+  async getOrder(orderId: string, symbol: string): Promise<Order> {
+    return this.clients.order.getOrder(orderId, symbol);
   }
 
-  async placeOrder(_request: unknown): Promise<unknown> {
-    throw new Error("Binance order management is not implemented yet");
+  async placeOrder(request: ExchangeOrderRequest): Promise<Order> {
+    return this.clients.order.placeOrder(request);
   }
 
-  async cancelOrder(_orderId: string, _symbol: string): Promise<unknown> {
-    throw new Error("Binance order management is not implemented yet");
+  async cancelOrder(orderId: string, symbol: string): Promise<Order> {
+    return this.clients.order.cancelOrder(orderId, symbol);
   }
 
-  async cancelAllOrders(_symbol?: string): Promise<readonly unknown[]> {
-    throw new Error("Binance order management is not implemented yet");
+  async cancelAllOrders(symbol?: string): Promise<readonly Order[]> {
+    return this.clients.order.cancelAllOrders(symbol);
   }
 }
 

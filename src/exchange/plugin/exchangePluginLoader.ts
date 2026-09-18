@@ -4,27 +4,42 @@ import {
   createExchangePluginRegistry,
   type ExchangePluginRegistry,
 } from "./exchangePluginRegistry";
-import { BinancePlugin } from "../plugins/binance/binancePlugin";
+import { BinancePlugin, type BinancePluginClients } from "../plugins/binance/binancePlugin";
 import { MexcPlugin } from "../plugins/mexc/mexcPlugin";
 import { createHtxPlugin } from "../plugins/htx/htxPlugin";
 
-export type ExchangePluginFactory = () => ExchangePlugin;
+export interface ExchangePluginLoaderContext {
+  readonly binance?: BinancePluginClients;
+}
+
+export type ExchangePluginFactory = (
+  context?: ExchangePluginLoaderContext,
+) => ExchangePlugin;
 
 const EXCHANGE_PLUGIN_FACTORIES: Readonly<
   Record<ExchangeId, ExchangePluginFactory>
 > = {
-  binance: () => new BinancePlugin(),
+  binance: (context) => {
+    if (!context?.binance) {
+      throw new Error("Binance plugin dependencies are required");
+    }
+
+    return new BinancePlugin(context.binance);
+  },
   mexc: () => new MexcPlugin(),
   htx: () => createHtxPlugin(),
 };
 
 export interface ExchangePluginLoader {
-  load(exchangeIds: readonly ExchangeId[]): ExchangePluginRegistry;
+  load(
+    exchangeIds: readonly ExchangeId[],
+    context?: ExchangePluginLoaderContext,
+  ): ExchangePluginRegistry;
 }
 
 export function createExchangePluginLoader(): ExchangePluginLoader {
   return {
-    load(exchangeIds) {
+    load(exchangeIds, context) {
       const plugins = exchangeIds.map((exchangeId) => {
         const factory = EXCHANGE_PLUGIN_FACTORIES[exchangeId];
 
@@ -34,7 +49,7 @@ export function createExchangePluginLoader(): ExchangePluginLoader {
           );
         }
 
-        return factory();
+        return factory(context);
       });
 
       return createExchangePluginRegistry(plugins);

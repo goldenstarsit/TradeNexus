@@ -21,7 +21,17 @@ async function run() {
   await assert.rejects(() => plugin.getBalance("USDT"), /HTX getBalance is not implemented yet/);
   await assert.rejects(() => plugin.getOpenOrders("BTCUSDT"), /HTX getOpenOrders is not implemented yet/);
   await assert.rejects(() => plugin.getOrder("1", "BTCUSDT"), /HTX getOrder is not implemented yet/);
-  await assert.rejects(() => plugin.placeOrder({}), /HTX placeOrder is not implemented yet/);
+  await assert.rejects(
+    () =>
+      plugin.placeOrder({
+        symbol: "BTCUSDT",
+        side: "buy",
+        type: "limit",
+        quantity: 0.001,
+        price: 100000,
+      }),
+    /HTX placeOrder is not implemented yet/,
+  );
   await assert.rejects(() => plugin.cancelOrder("1", "BTCUSDT"), /HTX cancelOrder is not implemented yet/);
   await assert.rejects(() => plugin.cancelAllOrders("BTCUSDT"), /HTX cancelAllOrders is not implemented yet/);
 

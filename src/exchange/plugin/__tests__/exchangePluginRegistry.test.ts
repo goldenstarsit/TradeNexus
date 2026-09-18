@@ -5,7 +5,24 @@ import { MexcPlugin } from "../../plugins/mexc/mexcPlugin";
 import { createHtxPlugin } from "../../plugins/htx/htxPlugin";
 
 async function run(): Promise<void> {
-  const binance = new BinancePlugin();
+  const clients = {
+    marketData: {
+      async getTicker() { throw new Error("test market data client should not be called"); },
+      async getOrderBook() { throw new Error("test market data client should not be called"); },
+    },
+    account: {
+      async getBalances() { throw new Error("test account client should not be called"); },
+    },
+    order: {
+      async getOpenOrders() { throw new Error("test order client should not be called"); },
+      async getOrder() { throw new Error("test order client should not be called"); },
+      async placeOrder() { throw new Error("test order client should not be called"); },
+      async cancelOrder() { throw new Error("test order client should not be called"); },
+      async cancelAllOrders() { throw new Error("test order client should not be called"); },
+    },
+  };
+
+  const binance = new BinancePlugin(clients);
   const mexc = new MexcPlugin();
   const htx = createHtxPlugin();
 
@@ -34,7 +51,7 @@ async function run(): Promise<void> {
   );
 
   assert.throws(
-    () => registry.register(new BinancePlugin()),
+    () => registry.register(new BinancePlugin(clients)),
     /Exchange plugin already registered: binance/,
   );
 
