@@ -57,6 +57,39 @@ async function run(): Promise<void> {
 
   assert.equal(registry.has("binance"), true);
 
+  assert.throws(
+    () =>
+      registry.register({
+        ...binance,
+        metadata: {
+          ...binance.metadata,
+          id: "kraken" as never,
+        },
+      } as never),
+    /Unsupported exchange plugin ID: kraken/,
+  );
+
+  assert.throws(
+    () =>
+      registry.register({
+        ...binance,
+        capabilities: {
+          ...binance.capabilities,
+          exchangeId: "mexc",
+        },
+      } as never),
+    /Exchange plugin capability ID mismatch: binance/,
+  );
+
+    assert.throws(
+      () => {
+        const invalidPlugin = Object.create(binance);
+        invalidPlugin.getTicker = undefined;
+        registry.register(invalidPlugin);
+      },
+      /Exchange plugin method is missing: getTicker/,
+    );
+
   const empty = createExchangePluginRegistry();
 
   assert.equal(empty.getAll().length, 0);
