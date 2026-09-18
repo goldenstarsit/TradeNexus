@@ -1,4 +1,7 @@
-import type { OrderType } from "../order-type/orderType";
+import {
+  isOrderType,
+  type OrderType,
+} from "../order-type/orderType";
 
 export const ORDER_SIDES = ["buy", "sell"] as const;
 export type OrderSide = (typeof ORDER_SIDES)[number];
@@ -46,6 +49,14 @@ function validateNonNegativeFinite(value: number, field: string): number {
   return value;
 }
 
+function validatePositiveFinite(value: number, field: string): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${field} must be a finite number greater than zero`);
+  }
+
+  return value;
+}
+
 function validateTimestamp(value: number, field: string): number {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(`${field} must be a finite non-negative timestamp`);
@@ -76,22 +87,30 @@ export function createOrder(input: {
   readonly createdAt: number;
   readonly updatedAt: number;
 }): Order {
-  const quantity = validateNonNegativeFinite(input.quantity, "Order quantity");
+  const quantity = validatePositiveFinite(input.quantity, "Order quantity");
   const executedQuantity = validateNonNegativeFinite(
     input.executedQuantity,
     "Executed quantity",
   );
+
+  if (!isOrderSide(input.side)) {
+    throw new Error(`Unsupported order side: ${String(input.side)}`);
+  }
+
+  if (!isOrderType(input.type)) {
+    throw new Error(`Unsupported order type: ${String(input.type)}`);
+  }
+
+  if (!isOrderStatus(input.status)) {
+    throw new Error(`Unsupported order status: ${String(input.status)}`);
+  }
 
   if (executedQuantity > quantity) {
     throw new Error("Executed quantity cannot exceed order quantity");
   }
 
   if (input.price !== undefined) {
-    validateNonNegativeFinite(input.price, "Order price");
-
-    if (input.price === 0) {
-      throw new Error("Order price must be greater than zero");
-    }
+    validatePositiveFinite(input.price, "Order price");
   }
 
   if (input.updatedAt < input.createdAt) {

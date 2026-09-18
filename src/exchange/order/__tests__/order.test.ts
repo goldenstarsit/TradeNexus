@@ -120,7 +120,75 @@ assert.throws(
       createdAt: now,
       updatedAt: now,
     }),
-  /Order price must be greater than zero/,
+  /Order price must be a finite number greater than zero/,
+);
+
+assert.throws(
+  () =>
+    createOrder({
+      id: "order-4",
+      exchange: "binance",
+      symbol: "BTCUSDT",
+      side: "hold" as never,
+      type: "limit",
+      status: "new",
+      quantity: 1,
+      executedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  /Unsupported order side: hold/,
+);
+
+assert.throws(
+  () =>
+    createOrder({
+      id: "order-5",
+      exchange: "binance",
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "unknown" as never,
+      status: "new",
+      quantity: 1,
+      executedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  /Unsupported order type: unknown/,
+);
+
+assert.throws(
+  () =>
+    createOrder({
+      id: "order-6",
+      exchange: "binance",
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "limit",
+      status: "unknown" as never,
+      quantity: 1,
+      executedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  /Unsupported order status: unknown/,
+);
+
+assert.throws(
+  () =>
+    createOrder({
+      id: "order-7",
+      exchange: "binance",
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "limit",
+      status: "new",
+      quantity: 0,
+      executedQuantity: 0,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  /Order quantity must be a finite number greater than zero/,
 );
 
 assert.throws(() => calculateRemainingQuantity(1, 2), /Executed quantity cannot exceed order quantity/);
