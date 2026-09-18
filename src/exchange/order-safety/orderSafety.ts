@@ -6,6 +6,7 @@ import {
   isOrderType,
   type OrderType,
 } from "../order-type/orderType";
+import { getOrderTypeDefinition } from "../order-type/orderTypeDefinition";
 import {
   isNotionalValid,
   isQuantityValid,
@@ -72,14 +73,12 @@ export function validateOrderRequest(
     errors.push("Quantity violates symbol rules");
   }
 
-  const requiresPrice =
-    request.type === "limit" ||
-    request.type === "makerOnly" ||
-    request.type === "stopLimit";
+  const orderTypeDefinition = isOrderType(request.type)
+    ? getOrderTypeDefinition(request.type)
+    : undefined;
 
-  const requiresStopPrice =
-    request.type === "stopMarket" ||
-    request.type === "stopLimit";
+  const requiresPrice = orderTypeDefinition?.requiresPrice ?? false;
+  const requiresStopPrice = orderTypeDefinition?.requiresStopPrice ?? false;
 
   if (requiresPrice && !isPositiveFinite(request.price)) {
     errors.push("Price is required and must be greater than zero");
