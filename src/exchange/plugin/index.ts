@@ -17,3 +17,9 @@ export type {
 export { createExchangePluginRegistry } from "./exchangePluginRegistry";
 
 export type { ExchangePluginRegistry } from "./exchangePluginRegistry";
+
+export {
+  createExchangeCancelReplaceRequest,
+  type ExchangeCancelReplaceClient,
+  type ExchangeCancelReplaceRequest,
+} from "../cancel-replace";
