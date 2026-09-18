@@ -5,16 +5,9 @@ import type { TradingSymbol } from "../domain/symbol";
 import type { MarketTicker, OrderBook } from "../market-data/marketData";
 import type { Order, OrderSide } from "../order/order";
 import type { OrderType } from "../order-type/orderType";
-
-export interface ExchangeOrderRequest {
-  readonly symbol: string;
-  readonly side: OrderSide;
-  readonly type: OrderType;
-  readonly quantity: number;
-  readonly price?: number;
-  readonly stopPrice?: number;
-  readonly clientOrderId?: string;
-}
+import type { ExchangeOrderRequest } from "./exchangeOrderRequest";
+export { createExchangeOrderRequest } from "./exchangeOrderRequest";
+export type { ExchangeOrderRequest } from "./exchangeOrderRequest";
 
 export interface ExchangePlugin {
   readonly metadata: ExchangeMetadata;
