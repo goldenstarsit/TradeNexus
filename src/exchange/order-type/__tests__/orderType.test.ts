@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import {
   getOrderTypeDefinition,
   isOrderType,
-  type OrderType,
   ORDER_TYPE_DEFINITIONS,
- } from "../index";
+  ORDER_TYPES,
+  type OrderType,
+} from "../index";
 
-const types: OrderType[] = ["market", "limit", "makerOnly", "stopMarket", "stopLimit"];
+const types: OrderType[] = [...ORDER_TYPES];
 
 for (const type of types) {
   assert.equal(isOrderType(type), true);
@@ -21,4 +22,17 @@ assert.equal(ORDER_TYPE_DEFINITIONS.stopMarket.requiresStopPrice, true);
 assert.equal(ORDER_TYPE_DEFINITIONS.stopLimit.requiresPrice, true);
 assert.equal(ORDER_TYPE_DEFINITIONS.stopLimit.requiresStopPrice, true);
 
-console.log("M34 order type abstraction verification: OK");
+assert.equal(Object.isFrozen(ORDER_TYPE_DEFINITIONS), true);
+
+for (const type of ORDER_TYPES) {
+  assert.equal(Object.isFrozen(ORDER_TYPE_DEFINITIONS[type]), true);
+}
+
+assert.throws(
+  () => {
+    (ORDER_TYPE_DEFINITIONS.limit as { requiresPrice: boolean }).requiresPrice = false;
+  },
+  TypeError,
+);
+
+console.log("Exchange order type contract hardening verification: OK");
