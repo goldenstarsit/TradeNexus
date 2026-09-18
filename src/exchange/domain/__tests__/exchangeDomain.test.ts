@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  createExchangeMetadata,
   EXCHANGE_IDS,
   ExchangeError,
   isExchangeId,
-  type ExchangeMetadata,
   type TradingSymbol,
- } from "../index";
+} from "../index";
 
 test("exchange domain exposes supported exchange IDs", () => {
   assert.deepEqual(EXCHANGE_IDS, ["binance", "mexc", "htx"]);
@@ -15,13 +15,13 @@ test("exchange domain exposes supported exchange IDs", () => {
 });
 
 test("exchange metadata and symbol models are valid", () => {
-  const metadata: ExchangeMetadata = {
+  const metadata = createExchangeMetadata({
     id: "mexc",
     name: "MEXC",
     status: "enabled",
     baseUrl: "https://api.mexc.com",
     marketTypes: ["spot"],
-  };
+  });
   const symbol: TradingSymbol = {
     exchangeSymbol: "BTCUSDT",
     baseAsset: { symbol: "BTC" },

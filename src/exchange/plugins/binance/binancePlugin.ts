@@ -1,7 +1,10 @@
 import type { ExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
 import { createExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
 import type { ExchangePlugin, ExchangeOrderRequest } from "../../plugin/exchangePlugin";
-import type { ExchangeMetadata } from "../../domain/exchangeMetadata";
+import {
+  createExchangeMetadata,
+  type ExchangeMetadata,
+} from "../../domain/exchangeMetadata";
 import type { TradingSymbol } from "../../domain/symbol";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
 import type { BalanceSnapshot } from "../../balance/balance";
@@ -10,13 +13,13 @@ import type { BinanceMarketDataClient } from "./binanceMarketData";
 import type { BinanceAccountClient } from "./binanceAccount";
 import type { BinanceOrderClient } from "./binanceOrder";
 
-const BINANCE_METADATA: ExchangeMetadata = {
+const BINANCE_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "binance",
   name: "Binance",
   status: "disabled",
   baseUrl: "https://api.binance.com",
   marketTypes: ["spot", "futures"],
-};
+});
 
 const BINANCE_CAPABILITIES: ExchangeCapabilities = createExchangeCapabilities("binance", [
   "spot",

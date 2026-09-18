@@ -1,15 +1,18 @@
 import { createExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
-import type { ExchangeMetadata } from "../../domain/exchangeMetadata";
+import {
+  createExchangeMetadata,
+  type ExchangeMetadata,
+} from "../../domain/exchangeMetadata";
 import type { TradingSymbol } from "../../domain/symbol";
 import type { ExchangePlugin } from "../../plugin/exchangePlugin";
 
-const HTX_METADATA: ExchangeMetadata = {
+const HTX_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "htx",
   name: "HTX",
   status: "disabled",
   baseUrl: "https://api.huobi.pro",
   marketTypes: ["spot", "futures"],
-};
+});
 const HTX_CAPABILITIES = createExchangeCapabilities("htx", [
   "spot",
   "futures",

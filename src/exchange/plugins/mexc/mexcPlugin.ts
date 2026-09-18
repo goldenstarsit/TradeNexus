@@ -1,7 +1,10 @@
 import type { BalanceSnapshot } from "../../balance/balance";
 import type { ExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
 import { createExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
-import type { ExchangeMetadata } from "../../domain/exchangeMetadata";
+import {
+  createExchangeMetadata,
+  type ExchangeMetadata,
+} from "../../domain/exchangeMetadata";
 import type { TradingSymbol } from "../../domain/symbol";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
 import type { Order } from "../../order/order";
@@ -10,13 +13,13 @@ import type {
   ExchangePlugin,
 } from "../../plugin/exchangePlugin";
 
-const MEXC_METADATA: ExchangeMetadata = {
+const MEXC_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "mexc",
   name: "MEXC",
   status: "disabled",
   baseUrl: "https://api.mexc.com",
   marketTypes: ["spot", "futures"],
-};
+});
 
 const MEXC_CAPABILITIES: ExchangeCapabilities =
   createExchangeCapabilities("mexc", [

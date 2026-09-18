@@ -12,6 +12,7 @@ export interface ExchangeOrderRequest {
   readonly type: OrderType;
   readonly quantity: number;
   readonly price?: number;
+  readonly stopPrice?: number;
   readonly clientOrderId?: string;
 }
 
