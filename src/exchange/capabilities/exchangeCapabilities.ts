@@ -12,13 +12,35 @@ export function createExchangeCapabilities(
   exchangeId: ExchangeId,
   capabilities: readonly ExchangeCapability[],
 ): ExchangeCapabilities {
-  const supported = new Set<ExchangeCapability>(capabilities);
+  const capabilitySet = new Set<ExchangeCapability>(capabilities);
 
-  return {
+  const supported: ReadonlySet<ExchangeCapability> = new Proxy(capabilitySet, {
+    get(target, property, receiver) {
+      if (
+        property === "add" ||
+        property === "delete" ||
+        property === "clear"
+      ) {
+        return () => {
+          throw new TypeError("Exchange capabilities are immutable");
+        };
+      }
+
+      const value = Reflect.get(target, property, target);
+
+      if (typeof value === "function") {
+        return value.bind(target);
+      }
+
+      return value;
+    },
+  });
+
+  return Object.freeze({
     exchangeId,
     supported,
-    supports(capability) {
-      return supported.has(capability);
+    supports(capability: ExchangeCapability) {
+      return capabilitySet.has(capability);
     },
-  };
+  });
 }
