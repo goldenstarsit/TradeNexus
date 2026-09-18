@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import type { BalanceSnapshot } from "../../balance/balance";
+import type { ExchangeId } from "../../domain/exchangeId";
 import {
   createExchangeAccountManager,
   type ExchangeAccountClient,
@@ -77,6 +78,24 @@ async function run(): Promise<void> {
   assert.throws(
     () => manager.get("kraken" as never),
     /Exchange account not registered: kraken/,
+  );
+
+  assert.throws(
+    () =>
+      createExchangeAccountManager().register(
+        "invalid" as ExchangeId,
+        createAccount("binance"),
+      ),
+    /Unsupported exchange ID/,
+  );
+
+  assert.throws(
+    () =>
+      createExchangeAccountManager().register(
+        "binance",
+        {} as ExchangeAccountClient,
+      ),
+    /getBalances method is missing/,
   );
 
   const empty = createExchangeAccountManager();

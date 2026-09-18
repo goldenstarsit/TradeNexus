@@ -60,13 +60,13 @@ async function run() {
     "api.huobi.pro",
   );
 
-  const snapshot = await client.getBalance();
+  const snapshot = await client.getBalances();
 
   assert.equal(snapshot.exchange, "htx");
   assert.deepEqual(snapshot.balances, [
-    { asset: "btc", free: 1.25, locked: 0.25 },
-    { asset: "usdt", free: 1000.5, locked: 25.5 },
-    { asset: "eth", free: 3, locked: 0 },
+    { asset: "BTC", free: 1.25, locked: 0.25 },
+    { asset: "USDT", free: 1000.5, locked: 25.5 },
+    { asset: "ETH", free: 3, locked: 0 },
   ]);
   assert.equal(typeof snapshot.timestamp, "number");
 
@@ -87,10 +87,10 @@ async function run() {
     Signature: httpClient.requests[1].query?.Signature,
   });
 
-  const usdt = await client.getBalance(" USDT ");
+  const usdt = await client.getBalances(" USDT ");
 
   assert.deepEqual(usdt.balances, [
-    { asset: "usdt", free: 1000.5, locked: 25.5 },
+    { asset: "USDT", free: 1000.5, locked: 25.5 },
   ]);
 
   console.log("M52 HTX account & balance verification: OK");

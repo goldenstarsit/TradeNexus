@@ -63,6 +63,30 @@ async function run(): Promise<void> {
   assert.equal(usdt.balances.length, 1);
   assert.equal(usdt.balances[0].asset, "USDT");
 
+  assert.throws(
+    () =>
+      createMexcAccountClient({
+        ...({
+          apiKey: "",
+          apiSecret: "secret",
+          httpClient: client as never,
+        }),
+      }),
+    /API key cannot be empty/,
+  );
+
+  assert.throws(
+    () =>
+      createMexcAccountClient({
+        ...({
+          apiKey: "key",
+          apiSecret: "",
+          httpClient: client as never,
+        }),
+      }),
+    /API secret cannot be empty/,
+  );
+
   console.log("M45 MEXC account/balance verification: OK");
 }
 

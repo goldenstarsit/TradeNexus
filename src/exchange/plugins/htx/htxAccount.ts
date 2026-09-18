@@ -1,9 +1,9 @@
 import { createHmac } from "node:crypto";
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
-import type { Balance, BalanceSnapshot } from "../../balance/balance";
+import { createBalance, createBalanceSnapshot, type Balance, type BalanceSnapshot } from "../../balance/balance";
 
 export interface HtxAccountClient {
-  getBalance(asset?: string): Promise<BalanceSnapshot>;
+  getBalances(asset?: string): Promise<BalanceSnapshot>;
 }
 
 export interface HtxAccountCredentials {
@@ -32,6 +32,26 @@ interface HtxBalanceResponse {
       balance: string | number;
     }>;
   };
+}
+
+function validateCredentials(credentials: HtxAccountCredentials): void {
+  if (!credentials.apiKey.trim()) {
+    throw new Error("HTX API key cannot be empty");
+  }
+
+  if (!credentials.apiSecret.trim()) {
+    throw new Error("HTX API secret cannot be empty");
+  }
+}
+
+function validateHost(host: string): string {
+  const normalized = host.trim();
+
+  if (!normalized) {
+    throw new Error("HTX host cannot be empty");
+  }
+
+  return normalized;
 }
 
 function encode(value: string): string {
@@ -99,7 +119,7 @@ function toNumber(value: string | number): number {
 }
 
 function normalizeAsset(asset: string): string {
-  return asset.trim().toLowerCase();
+  return asset.trim().toUpperCase();
 }
 
 function mapBalances(
@@ -123,18 +143,19 @@ function mapBalances(
   }
 
   const mapped: Balance[] = [...balances.entries()].map(
-    ([asset, values]) => ({
-      asset,
-      free: values.free,
-      locked: values.locked,
-    }),
+    ([asset, values]) =>
+      createBalance({
+        asset,
+        free: values.free,
+        locked: values.locked,
+      }),
   );
 
-  return {
+  return createBalanceSnapshot({
     exchange,
     balances: mapped,
     timestamp: Date.now(),
-  };
+  });
 }
 
 export function createHtxAccountClient(
@@ -142,12 +163,16 @@ export function createHtxAccountClient(
   credentials: HtxAccountCredentials,
   host = "api.huobi.pro",
 ): HtxAccountClient {
+  validateCredentials(credentials);
+
+  const normalizedHost = validateHost(host);
+
   return {
-    async getBalance(asset) {
+    async getBalances(asset) {
       const accountsPath = "/v1/account/accounts";
       const accountsQuery = createAuthQuery(
         credentials,
-        host,
+        normalizedHost,
         accountsPath,
       );
 
@@ -169,7 +194,7 @@ export function createHtxAccountClient(
       const balancePath = `/v1/account/accounts/${account.id}/balance`;
       const balanceQuery = createAuthQuery(
         credentials,
-        host,
+        normalizedHost,
         balancePath,
       );
 

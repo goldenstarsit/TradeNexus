@@ -60,6 +60,30 @@ async function run() {
   assert.equal(usdt.balances.length, 1);
   assert.equal(usdt.balances[0].asset, "USDT");
 
+  assert.throws(
+    () =>
+      createBinanceAccountClient({
+        ...({
+          apiKey: "",
+          apiSecret: "secret",
+          httpClient: client as never,
+        }),
+      }),
+    /API key cannot be empty/,
+  );
+
+  assert.throws(
+    () =>
+      createBinanceAccountClient({
+        ...({
+          apiKey: "key",
+          apiSecret: "",
+          httpClient: client as never,
+        }),
+      }),
+    /API secret cannot be empty/,
+  );
+
   console.log("M38 Binance account/balance verification: OK");
 }
 

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
-import type { Balance, BalanceSnapshot } from "../../balance/balance";
+import { createBalance, createBalanceSnapshot, type Balance, type BalanceSnapshot } from "../../balance/balance";
 
 export interface MexcAccountClient {
   getBalances(asset?: string): Promise<BalanceSnapshot>;
@@ -30,6 +30,24 @@ function toNumber(value: string): number {
   return number;
 }
 
+function validateCredentials(apiKey: string, apiSecret: string): void {
+  if (!apiKey.trim()) {
+    throw new Error("MEXC API key cannot be empty");
+  }
+
+  if (!apiSecret.trim()) {
+    throw new Error("MEXC API secret cannot be empty");
+  }
+}
+
+function validateRecvWindow(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error("MEXC recvWindow must be a finite number greater than zero");
+  }
+
+  return value;
+}
+
 function createSignature(queryString: string, apiSecret: string): string {
   return createHmac("sha256", apiSecret)
     .update(queryString)
@@ -39,7 +57,9 @@ function createSignature(queryString: string, apiSecret: string): string {
 export function createMexcAccountClient(
   options: MexcAccountClientOptions,
 ): MexcAccountClient {
-  const recvWindow = options.recvWindow ?? 5000;
+  validateCredentials(options.apiKey, options.apiSecret);
+
+  const recvWindow = validateRecvWindow(options.recvWindow ?? 5000);
   const now = options.now ?? Date.now;
 
   return {
@@ -69,23 +89,23 @@ export function createMexcAccountClient(
         },
       });
 
-      const balances: Balance[] = response.data.balances.map((balance) => ({
-        asset: balance.asset,
-        free: toNumber(balance.free),
-        locked: toNumber(balance.locked),
-      }));
+      const balances: Balance[] = response.data.balances.map((balance) =>
+        createBalance({
+          asset: balance.asset,
+          free: toNumber(balance.free),
+          locked: toNumber(balance.locked),
+        }),
+      );
 
       const normalizedAsset = asset?.trim().toUpperCase();
 
-      return {
+      return createBalanceSnapshot({
         exchange: "mexc",
         balances: normalizedAsset
-          ? balances.filter(
-              (balance) => balance.asset.trim().toUpperCase() === normalizedAsset,
-            )
+          ? balances.filter((balance) => balance.asset === normalizedAsset)
           : balances,
         timestamp,
-      };
+      });
     },
   };
 }

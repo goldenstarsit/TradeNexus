@@ -1,4 +1,5 @@
 import type { ExchangeId } from "../domain/exchangeId";
+import { isExchangeId } from "../domain/exchangeId";
 import type { BalanceSnapshot } from "../balance/balance";
 
 export interface ExchangeAccountClient {
@@ -25,6 +26,18 @@ export function createExchangeAccountManager(
     exchangeId: ExchangeId,
     account: ExchangeAccountClient,
   ): void {
+    if (!isExchangeId(exchangeId)) {
+      throw new Error(`Unsupported exchange ID: ${String(exchangeId)}`);
+    }
+
+    if (!account || typeof account !== "object") {
+      throw new Error("Exchange account must be an object");
+    }
+
+    if (typeof account.getBalances !== "function") {
+      throw new Error("Exchange account getBalances method is missing");
+    }
+
     if (registry.has(exchangeId)) {
       throw new Error(
         `Exchange account already registered: ${exchangeId}`,
