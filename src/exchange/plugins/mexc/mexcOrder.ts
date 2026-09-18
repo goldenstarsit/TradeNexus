@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
 import type { Order, OrderSide, OrderStatus } from "../../order/order";
-import type { OrderType } from "../../order-type/orderType";
+import { isOrderType, type OrderType } from "../../order-type/orderType";
 
 export interface MexcOrderRequest {
   readonly symbol: string;
@@ -84,6 +84,20 @@ function mapOrderStatus(status: string | undefined): OrderStatus {
   }
 }
 
+function mapExchangeOrderType(value: string): OrderType {
+  const normalized = value.toLowerCase();
+
+  if (normalized === "limit_maker") {
+    return "makerOnly";
+  }
+
+  if (!isOrderType(normalized)) {
+    throw new Error(`Unsupported order type: ${value}`);
+  }
+
+  return normalized;
+}
+
 function mapOrder(response: MexcOrderResponse, fallbackTimestamp: number): Order {
   const quantity = toNumber(response.origQty);
   const executedQuantity = toNumber(response.executedQty);
@@ -94,10 +108,7 @@ function mapOrder(response: MexcOrderResponse, fallbackTimestamp: number): Order
     exchange: "mexc",
     symbol: normalizeSymbol(response.symbol),
     side: mapSide(response.side),
-    type:
-      response.type === "LIMIT_MAKER"
-        ? "makerOnly"
-        : response.type.toLowerCase(),
+    type: mapExchangeOrderType(response.type),
     status: mapOrderStatus(response.status),
     price:
       response.price === undefined ? undefined : toNumber(response.price),

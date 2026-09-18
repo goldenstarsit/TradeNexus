@@ -61,7 +61,7 @@ async function run() {
   assert.equal(placed.exchange, "binance");
   assert.equal(placed.symbol, "BTCUSDT");
   assert.equal(placed.side, "buy");
-  assert.equal(placed.type, "limit_maker");
+  assert.equal(placed.type, "makerOnly");
   assert.equal(placed.status, "partiallyFilled");
   assert.equal(placed.quantity, 0.001);
   assert.equal(placed.executedQuantity, 0.0005);

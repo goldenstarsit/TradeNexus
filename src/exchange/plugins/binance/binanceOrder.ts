@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
 import type { Order, OrderSide, OrderStatus } from "../../order/order";
-import type { OrderType } from "../../order-type/orderType";
+import { isOrderType, type OrderType } from "../../order-type/orderType";
 
 export interface BinanceOrderRequest {
   readonly symbol: string;
@@ -90,6 +90,20 @@ function toBinanceStatus(status: string): OrderStatus {
   }
 }
 
+function mapExchangeOrderType(value: string): OrderType {
+  const normalized = value.toLowerCase();
+
+  if (normalized === "limit_maker") {
+    return "makerOnly";
+  }
+
+  if (!isOrderType(normalized)) {
+    throw new Error(`Unsupported order type: ${value}`);
+  }
+
+  return normalized;
+}
+
 function mapOrder(
   response: BinanceOrderResponse,
 ): Order {
@@ -102,7 +116,7 @@ function mapOrder(
     exchange: "binance",
     symbol: response.symbol,
     side: response.side.toLowerCase() as OrderSide,
-    type: response.type.toLowerCase(),
+    type: mapExchangeOrderType(response.type),
     status: toBinanceStatus(response.status),
     price: toNumber(response.price),
     quantity,
