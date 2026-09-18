@@ -1,5 +1,12 @@
 import type { ExchangeId } from "../domain/exchangeId";
+import { isExchangeId } from "../domain/exchangeId";
 import type { MarketType } from "../domain/marketType";
+
+const MARKET_TYPES = ["spot", "futures"] as const;
+
+function isMarketType(value: unknown): value is MarketType {
+  return typeof value === "string" && MARKET_TYPES.includes(value as MarketType);
+}
 
 export interface SymbolMapping {
   readonly canonicalSymbol: string;
@@ -10,8 +17,16 @@ export interface SymbolMapping {
 
 export interface SymbolMappingManager {
   register(mapping: SymbolMapping): void;
-  has(canonicalSymbol: string, exchangeId: ExchangeId, marketType: MarketType): boolean;
-  get(canonicalSymbol: string, exchangeId: ExchangeId, marketType: MarketType): SymbolMapping;
+  has(
+    canonicalSymbol: string,
+    exchangeId: ExchangeId,
+    marketType: MarketType,
+  ): boolean;
+  get(
+    canonicalSymbol: string,
+    exchangeId: ExchangeId,
+    marketType: MarketType,
+  ): SymbolMapping;
   getExchangeSymbol(
     canonicalSymbol: string,
     exchangeId: ExchangeId,
@@ -20,14 +35,28 @@ export interface SymbolMappingManager {
   getAll(canonicalSymbol?: string): readonly SymbolMapping[];
 }
 
-function normalizeSymbol(symbol: string): string {
-  const normalized = symbol.trim().toUpperCase();
-
-  if (!normalized) {
-    throw new Error("Symbol cannot be empty");
+function normalizeSymbol(symbol: string, field = "Symbol"): string {
+  if (typeof symbol !== "string" || !symbol.trim()) {
+    throw new Error(`${field} cannot be empty`);
   }
 
-  return normalized;
+  return symbol.trim().toUpperCase();
+}
+
+function validateExchangeId(value: unknown): ExchangeId {
+  if (typeof value !== "string" || !isExchangeId(value)) {
+    throw new Error(`Unsupported exchange ID: ${String(value)}`);
+  }
+
+  return value;
+}
+
+function validateMarketType(value: unknown): MarketType {
+  if (!isMarketType(value)) {
+    throw new Error(`Unsupported market type: ${String(value)}`);
+  }
+
+  return value;
 }
 
 function mappingKey(
@@ -38,31 +67,44 @@ function mappingKey(
   return `${normalizeSymbol(canonicalSymbol)}:${exchangeId}:${marketType}`;
 }
 
+function freezeMapping(
+  mapping: SymbolMapping,
+): SymbolMapping {
+  return Object.freeze({
+    canonicalSymbol: normalizeSymbol(
+      mapping.canonicalSymbol,
+      "Canonical symbol",
+    ),
+    exchangeId: validateExchangeId(mapping.exchangeId),
+    exchangeSymbol: normalizeSymbol(
+      mapping.exchangeSymbol,
+      "Exchange symbol",
+    ),
+    marketType: validateMarketType(mapping.marketType),
+  });
+}
+
 export function createSymbolMappingManager(
   mappings: readonly SymbolMapping[] = [],
 ): SymbolMappingManager {
   const registry = new Map<string, SymbolMapping>();
 
   function register(mapping: SymbolMapping): void {
-    const canonicalSymbol = normalizeSymbol(mapping.canonicalSymbol);
-    const exchangeSymbol = normalizeSymbol(mapping.exchangeSymbol);
+    const normalizedMapping = freezeMapping(mapping);
+
     const key = mappingKey(
-      canonicalSymbol,
-      mapping.exchangeId,
-      mapping.marketType,
+      normalizedMapping.canonicalSymbol,
+      normalizedMapping.exchangeId,
+      normalizedMapping.marketType,
     );
 
     if (registry.has(key)) {
       throw new Error(
-        `Symbol mapping already registered: ${canonicalSymbol} -> ${mapping.exchangeId}`,
+        `Symbol mapping already registered: ${normalizedMapping.canonicalSymbol} -> ${normalizedMapping.exchangeId}`,
       );
     }
 
-    registry.set(key, {
-      ...mapping,
-      canonicalSymbol,
-      exchangeSymbol,
-    });
+    registry.set(key, normalizedMapping);
   }
 
   function get(
@@ -71,13 +113,21 @@ export function createSymbolMappingManager(
     marketType: MarketType,
   ): SymbolMapping {
     const normalizedCanonicalSymbol = normalizeSymbol(canonicalSymbol);
+
+    const normalizedExchangeId = validateExchangeId(exchangeId);
+    const normalizedMarketType = validateMarketType(marketType);
+
     const mapping = registry.get(
-      mappingKey(normalizedCanonicalSymbol, exchangeId, marketType),
+      mappingKey(
+        normalizedCanonicalSymbol,
+        normalizedExchangeId,
+        normalizedMarketType,
+      ),
     );
 
     if (!mapping) {
       throw new Error(
-        `Symbol mapping not registered: ${normalizedCanonicalSymbol} -> ${exchangeId}`,
+        `Symbol mapping not registered: ${normalizedCanonicalSymbol} -> ${normalizedExchangeId}`,
       );
     }
 
@@ -88,31 +138,52 @@ export function createSymbolMappingManager(
     register(mapping);
   }
 
-  return {
+  return Object.freeze({
     register,
 
-    has(canonicalSymbol, exchangeId, marketType) {
-      return registry.has(mappingKey(canonicalSymbol, exchangeId, marketType));
+    has(
+      canonicalSymbol: string,
+      exchangeId: ExchangeId,
+      marketType: MarketType,
+    ) {
+      const normalizedCanonicalSymbol = normalizeSymbol(canonicalSymbol);
+      const normalizedExchangeId = validateExchangeId(exchangeId);
+      const normalizedMarketType = validateMarketType(marketType);
+
+      return registry.has(
+        mappingKey(
+          normalizedCanonicalSymbol,
+          normalizedExchangeId,
+          normalizedMarketType,
+        ),
+      );
     },
 
     get,
 
-    getExchangeSymbol(canonicalSymbol, exchangeId, marketType) {
+    getExchangeSymbol(
+      canonicalSymbol: string,
+      exchangeId: ExchangeId,
+      marketType: MarketType,
+    ) {
       return get(canonicalSymbol, exchangeId, marketType).exchangeSymbol;
     },
 
-    getAll(canonicalSymbol) {
+    getAll(canonicalSymbol?: string) {
+      const mappings = [...registry.values()];
+
       if (canonicalSymbol === undefined) {
-        return Object.freeze([...registry.values()]);
+        return Object.freeze(mappings);
       }
 
       const normalizedCanonicalSymbol = normalizeSymbol(canonicalSymbol);
 
       return Object.freeze(
-        [...registry.values()].filter(
-          (mapping) => mapping.canonicalSymbol === normalizedCanonicalSymbol,
+        mappings.filter(
+          (mapping) =>
+            mapping.canonicalSymbol === normalizedCanonicalSymbol,
         ),
       );
     },
-  };
+  });
 }
