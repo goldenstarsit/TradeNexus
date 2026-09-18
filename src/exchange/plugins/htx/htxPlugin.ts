@@ -1,10 +1,15 @@
+import type { ExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
 import { createExchangeCapabilities } from "../../capabilities/exchangeCapabilities";
-import {
-  createExchangeMetadata,
-  type ExchangeMetadata,
-} from "../../domain/exchangeMetadata";
+import type { ExchangeMetadata } from "../../domain/exchangeMetadata";
+import { createExchangeMetadata } from "../../domain/exchangeMetadata";
 import type { TradingSymbol } from "../../domain/symbol";
-import type { ExchangePlugin } from "../../plugin/exchangePlugin";
+import type { BalanceSnapshot } from "../../balance/balance";
+import type { MarketTicker, OrderBook } from "../../market-data/marketData";
+import type { Order } from "../../order/order";
+import type { ExchangePlugin, ExchangeOrderRequest } from "../../plugin/exchangePlugin";
+import type { HtxMarketDataClient } from "./htxMarketData";
+import type { HtxAccountClient } from "./htxAccount";
+import type { HtxOrderClient } from "./htxOrder";
 
 const HTX_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "htx",
@@ -13,7 +18,8 @@ const HTX_METADATA: ExchangeMetadata = createExchangeMetadata({
   baseUrl: "https://api.huobi.pro",
   marketTypes: ["spot", "futures"],
 });
-const HTX_CAPABILITIES = createExchangeCapabilities("htx", [
+
+const HTX_CAPABILITIES: ExchangeCapabilities = createExchangeCapabilities("htx", [
   "spot",
   "futures",
   "marketOrders",
@@ -28,25 +34,61 @@ const HTX_CAPABILITIES = createExchangeCapabilities("htx", [
   "rateLimits",
 ]);
 
-function notImplemented(method: string): never {
-  throw new Error(`HTX ${method} is not implemented yet`);
+export interface HtxPluginClients {
+  readonly marketData: HtxMarketDataClient;
+  readonly account: HtxAccountClient;
+  readonly order: HtxOrderClient;
 }
 
-export function createHtxPlugin(): ExchangePlugin {
-  return {
-    metadata: HTX_METADATA,
-    capabilities: HTX_CAPABILITIES,
-    getSymbols: async (): Promise<readonly TradingSymbol[]> => [],
-    getSymbol: async (): Promise<TradingSymbol | undefined> => undefined,
-    getTicker: async () => notImplemented("getTicker"),
-    getOrderBook: async () => notImplemented("getOrderBook"),
-    getBalance: async () => notImplemented("getBalance"),
-    getOpenOrders: async () => notImplemented("getOpenOrders"),
-    getOrder: async () => notImplemented("getOrder"),
-    placeOrder: async () => notImplemented("placeOrder"),
-    cancelOrder: async () => notImplemented("cancelOrder"),
-    cancelAllOrders: async () => notImplemented("cancelAllOrders"),
-  };
+export class HtxPlugin implements ExchangePlugin {
+  readonly metadata = HTX_METADATA;
+  readonly capabilities = HTX_CAPABILITIES;
+
+  constructor(private readonly clients: HtxPluginClients) {}
+
+  async getSymbols(): Promise<readonly TradingSymbol[]> {
+    return [];
+  }
+
+  async getSymbol(_symbol: string): Promise<TradingSymbol | undefined> {
+    return undefined;
+  }
+
+  async getTicker(symbol: string): Promise<MarketTicker> {
+    return this.clients.marketData.getTicker(symbol);
+  }
+
+  async getOrderBook(symbol: string, limit?: number): Promise<OrderBook> {
+    return this.clients.marketData.getOrderBook(symbol, limit);
+  }
+
+  async getBalance(asset?: string): Promise<BalanceSnapshot> {
+    return this.clients.account.getBalances(asset);
+  }
+
+  async getOpenOrders(symbol?: string): Promise<readonly Order[]> {
+    return this.clients.order.getOpenOrders(symbol);
+  }
+
+  async getOrder(orderId: string, symbol: string): Promise<Order> {
+    return this.clients.order.getOrder(orderId, symbol);
+  }
+
+  async placeOrder(request: ExchangeOrderRequest): Promise<Order> {
+    return this.clients.order.placeOrder(request);
+  }
+
+  async cancelOrder(orderId: string, symbol: string): Promise<Order> {
+    return this.clients.order.cancelOrder(orderId, symbol);
+  }
+
+  async cancelAllOrders(symbol?: string): Promise<readonly Order[]> {
+    return this.clients.order.cancelAllOrders(symbol);
+  }
 }
 
-export { HTX_CAPABILITIES };
+export function createHtxPlugin(clients: HtxPluginClients): HtxPlugin {
+  return new HtxPlugin(clients);
+}
+
+export { HTX_METADATA, HTX_CAPABILITIES };

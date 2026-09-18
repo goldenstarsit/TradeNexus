@@ -24,7 +24,14 @@ async function run(): Promise<void> {
 
   const loader = createExchangePluginLoader();
 
-  const registry = loader.load(["binance", "mexc", "htx"], { binance: clients });
+  const registry = loader.load(
+    ["binance", "mexc", "htx"],
+    {
+      binance: clients,
+      mexc: clients,
+      htx: clients,
+    },
+  );
 
   assert.deepEqual(
     registry.getAll().map((plugin) => plugin.metadata.id),
@@ -39,11 +46,40 @@ async function run(): Promise<void> {
   const mexcFactory = getExchangePluginFactory("mexc");
   const htxFactory = getExchangePluginFactory("htx");
 
-  assert.equal(binanceFactory({ binance: clients }).metadata.id, "binance");
-  assert.equal(mexcFactory().metadata.id, "mexc");
-  assert.equal(htxFactory().metadata.id, "htx");
+  assert.equal(
+    binanceFactory({ binance: clients }).metadata.id,
+    "binance",
+  );
+  assert.equal(
+    mexcFactory({ mexc: clients }).metadata.id,
+    "mexc",
+  );
+  assert.equal(
+    htxFactory({ htx: clients }).metadata.id,
+    "htx",
+  );
 
-  const selected = loader.load(["mexc"]);
+  assert.throws(
+    () => mexcFactory(),
+    /MEXC plugin dependencies are required/,
+  );
+
+  assert.throws(
+    () => htxFactory(),
+    /HTX plugin dependencies are required/,
+  );
+
+  assert.throws(
+    () => loader.load(["mexc"]),
+    /MEXC plugin dependencies are required/,
+  );
+
+  assert.throws(
+    () => loader.load(["htx"]),
+    /HTX plugin dependencies are required/,
+  );
+
+  const selected = loader.load(["mexc"], { mexc: clients });
 
   assert.equal(selected.getAll().length, 1);
   assert.equal(selected.get("mexc").metadata.id, "mexc");

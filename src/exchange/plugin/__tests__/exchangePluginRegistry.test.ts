@@ -23,8 +23,8 @@ async function run(): Promise<void> {
   };
 
   const binance = new BinancePlugin(clients);
-  const mexc = new MexcPlugin();
-  const htx = createHtxPlugin();
+  const mexc = new MexcPlugin(clients);
+  const htx = createHtxPlugin(clients);
 
   const registry = createExchangePluginRegistry([
     binance,

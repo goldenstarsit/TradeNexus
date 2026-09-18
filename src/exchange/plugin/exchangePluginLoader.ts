@@ -5,11 +5,13 @@ import {
   type ExchangePluginRegistry,
 } from "./exchangePluginRegistry";
 import { BinancePlugin, type BinancePluginClients } from "../plugins/binance/binancePlugin";
-import { MexcPlugin } from "../plugins/mexc/mexcPlugin";
-import { createHtxPlugin } from "../plugins/htx/htxPlugin";
+import { MexcPlugin, type MexcPluginClients } from "../plugins/mexc/mexcPlugin";
+import { createHtxPlugin, type HtxPluginClients } from "../plugins/htx/htxPlugin";
 
 export interface ExchangePluginLoaderContext {
   readonly binance?: BinancePluginClients;
+  readonly mexc?: MexcPluginClients;
+  readonly htx?: HtxPluginClients;
 }
 
 export type ExchangePluginFactory = (
@@ -26,8 +28,20 @@ const EXCHANGE_PLUGIN_FACTORIES: Readonly<
 
     return new BinancePlugin(context.binance);
   },
-  mexc: () => new MexcPlugin(),
-  htx: () => createHtxPlugin(),
+  mexc: (context) => {
+    if (!context?.mexc) {
+      throw new Error("MEXC plugin dependencies are required");
+    }
+
+    return new MexcPlugin(context.mexc);
+  },
+  htx: (context) => {
+    if (!context?.htx) {
+      throw new Error("HTX plugin dependencies are required");
+    }
+
+    return createHtxPlugin(context.htx);
+  },
 };
 
 export interface ExchangePluginLoader {
