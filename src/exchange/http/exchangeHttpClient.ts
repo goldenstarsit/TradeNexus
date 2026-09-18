@@ -26,6 +26,39 @@ export interface ExchangeHttpClientOptions {
   readonly fetchImpl?: typeof fetch;
 }
 
+function validateRequiredString(value: string, field: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${field} cannot be empty`);
+  }
+
+  return value.trim();
+}
+
+function validateTimeout(value: number, field: string): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${field} must be a finite number greater than zero`);
+  }
+
+  return value;
+}
+
+function validateBaseUrl(value: string): string {
+  const baseUrl = validateRequiredString(value, "Base URL");
+
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new Error("Base URL must be a valid URL");
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Base URL must use HTTP or HTTPS");
+  }
+
+  return url.toString();
+}
+
 function buildUrl(baseUrl: string, path: string, query?: HttpRequest["query"]): string {
   const url = new URL(path, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
   if (query) {
@@ -57,17 +90,25 @@ async function readResponseBody(response: Response): Promise<unknown> {
 export function createExchangeHttpClient(
   options: ExchangeHttpClientOptions,
 ): ExchangeHttpClient {
+  const exchange = validateRequiredString(options.exchange, "Exchange");
+  const baseUrl = validateBaseUrl(options.baseUrl);
   const fetchImpl = options.fetchImpl ?? fetch;
-  const defaultTimeoutMs = options.defaultTimeoutMs ?? 10_000;
+  const defaultTimeoutMs = validateTimeout(
+    options.defaultTimeoutMs ?? 10_000,
+    "Default timeout",
+  );
 
   return {
     async request<T>(request: HttpRequest): Promise<HttpResponse<T>> {
       const controller = new AbortController();
-      const timeoutMs = request.timeoutMs ?? defaultTimeoutMs;
+      const timeoutMs = validateTimeout(
+        request.timeoutMs ?? defaultTimeoutMs,
+        "Request timeout",
+      );
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
-        const url = buildUrl(options.baseUrl, request.path, request.query);
+        const url = buildUrl(baseUrl, request.path, request.query);
         const headers = new Headers(request.headers);
         let body: string | undefined;
 
@@ -86,9 +127,9 @@ export function createExchangeHttpClient(
           });
         } catch (error) {
           if (controller.signal.aborted) {
-            throw new ExchangeError(options.exchange, "TIMEOUT", `Request timed out after ${timeoutMs}ms`, error);
+            throw new ExchangeError(exchange, "TIMEOUT", `Request timed out after ${timeoutMs}ms`, error);
           }
-          throw new ExchangeError(options.exchange, "NETWORK_ERROR", "Exchange HTTP request failed", error);
+          throw new ExchangeError(exchange, "NETWORK_ERROR", "Exchange HTTP request failed", error);
         }
 
         const data = await readResponseBody(response);
@@ -105,7 +146,7 @@ export function createExchangeHttpClient(
                   : "UNKNOWN_ERROR";
 
           throw new ExchangeError(
-            options.exchange,
+            exchange,
             code,
             `Exchange request failed with HTTP ${response.status}`,
             data,

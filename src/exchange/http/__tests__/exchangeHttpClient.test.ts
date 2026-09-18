@@ -75,3 +75,63 @@ test("HTTP client converts network failures and timeouts", async () => {
     (error: unknown) => error instanceof ExchangeError && error.code === "TIMEOUT",
   );
 });
+
+test("HTTP client validates base URL, exchange and timeout configuration", () => {
+  assert.throws(
+    () =>
+      createExchangeHttpClient({
+        exchange: "",
+        baseUrl: "https://api.example.com",
+      }),
+    /Exchange cannot be empty/,
+  );
+
+  assert.throws(
+    () =>
+      createExchangeHttpClient({
+        exchange: "mexc",
+        baseUrl: "not-a-url",
+      }),
+    /Base URL must be a valid URL/,
+  );
+
+  assert.throws(
+    () =>
+      createExchangeHttpClient({
+        exchange: "mexc",
+        baseUrl: "ftp://api.example.com",
+      }),
+    /Base URL must use HTTP or HTTPS/,
+  );
+
+  assert.throws(
+    () =>
+      createExchangeHttpClient({
+        exchange: "mexc",
+        baseUrl: "https://api.example.com",
+        defaultTimeoutMs: 0,
+      }),
+    /Default timeout must be a finite number greater than zero/,
+  );
+});
+
+test("HTTP client validates per-request timeout", async () => {
+  const client = createExchangeHttpClient({
+    exchange: "mexc",
+    baseUrl: "https://api.example.com",
+    fetchImpl: async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+  });
+
+  await assert.rejects(
+    client.request({
+      method: "GET",
+      path: "/test",
+      timeoutMs: 0,
+    }),
+    /Request timeout must be a finite number greater than zero/,
+  );
+});
