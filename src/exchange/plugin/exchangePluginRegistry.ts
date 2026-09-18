@@ -34,6 +34,32 @@ export function createExchangePluginRegistry(
       );
     }
 
+    const marketTypeCapabilities = {
+      spot: "spot",
+      futures: "futures",
+    } as const;
+
+    for (const marketType of plugin.metadata.marketTypes) {
+      const capability = marketTypeCapabilities[marketType];
+
+      if (!plugin.capabilities.supports(capability)) {
+        throw new Error(
+          `Exchange plugin market type capability missing: ${plugin.metadata.id}:${marketType}`,
+        );
+      }
+    }
+
+    for (const marketType of ["spot", "futures"] as const) {
+      if (
+        plugin.capabilities.supports(marketType) &&
+        !plugin.metadata.marketTypes.includes(marketType)
+      ) {
+        throw new Error(
+          `Exchange plugin capability market type mismatch: ${plugin.metadata.id}:${marketType}`,
+        );
+      }
+    }
+
     const requiredMethods = [
       "getSymbols",
       "getSymbol",
