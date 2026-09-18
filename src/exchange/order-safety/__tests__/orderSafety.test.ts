@@ -216,3 +216,106 @@ test("symbol validation rejects empty and mismatched symbols", () => {
     mismatch.errors.includes("Symbol does not match symbol rules"),
   );
 });
+
+test("maximum quantity and maximum notional rules are enforced", () => {
+  const limitedRules: SymbolRules = Object.freeze({
+    ...rules,
+    maxQuantity: 1,
+    maxNotional: 500,
+  });
+
+  const excessiveQuantity = validateOrderRequest(
+    {
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "limit",
+      quantity: 2,
+      price: 100,
+    },
+    limitedRules,
+  );
+
+  assert.equal(excessiveQuantity.valid, false);
+  assert.ok(
+    excessiveQuantity.errors.includes("Quantity violates symbol rules"),
+  );
+
+  const excessiveNotional = validateOrderRequest(
+    {
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "limit",
+      quantity: 1,
+      price: 600,
+    },
+    limitedRules,
+  );
+
+  assert.equal(excessiveNotional.valid, false);
+  assert.ok(
+    excessiveNotional.errors.includes(
+      "Order notional violates symbol rules",
+    ),
+  );
+});
+
+test("stop-limit validates both executable price and stop price", () => {
+  const invalid = validateOrderRequest(
+    {
+      symbol: "BTCUSDT",
+      side: "sell",
+      type: "stopLimit",
+      quantity: 0.01,
+      price: 100000.005,
+      stopPrice: 99000.005,
+    },
+    rules,
+  );
+
+  assert.equal(invalid.valid, false);
+  assert.ok(
+    invalid.errors.includes("Price violates price tick size"),
+  );
+  assert.ok(
+    invalid.errors.includes("Stop price violates price tick size"),
+  );
+});
+
+test("maker-only order requires price and rejects stop price", () => {
+  const missingPrice = validateOrderRequest(
+    {
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "makerOnly",
+      quantity: 0.01,
+    },
+    rules,
+  );
+
+  assert.equal(missingPrice.valid, false);
+  assert.ok(
+    missingPrice.errors.includes(
+      "Price is required and must be greater than zero",
+    ),
+  );
+
+  const withStopPrice = validateOrderRequest(
+    {
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "makerOnly",
+      quantity: 0.01,
+      price: 100000,
+      stopPrice: 99000,
+    },
+    rules,
+  );
+
+  assert.equal(withStopPrice.valid, false);
+  assert.ok(
+    withStopPrice.errors.includes(
+      "Stop price is not allowed for this order type",
+    ),
+  );
+});
+

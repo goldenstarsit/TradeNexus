@@ -8,6 +8,7 @@ import {
 } from "../order-type/orderType";
 import {
   isNotionalValid,
+  isQuantityValid,
   type SymbolRules,
 } from "../symbol-rules/symbolRules";
 
@@ -67,15 +68,8 @@ export function validateOrderRequest(
 
   if (!Number.isFinite(request.quantity) || request.quantity <= 0) {
     errors.push("Quantity must be greater than zero");
-  } else {
-    if (
-      request.quantity < rules.minQuantity ||
-      (rules.maxQuantity !== undefined &&
-        request.quantity > rules.maxQuantity) ||
-      !isStepAligned(request.quantity, rules.quantityStepSize)
-    ) {
-      errors.push("Quantity violates symbol rules");
-    }
+  } else if (!isQuantityValid(request.quantity, rules)) {
+    errors.push("Quantity violates symbol rules");
   }
 
   const requiresPrice =
