@@ -15,6 +15,34 @@ async function run(): Promise<void> {
         query: options.query,
       });
 
+      if (options.path === "/api/v3/exchangeInfo") {
+        return {
+          status: 200,
+          data: {
+            symbols: [
+              {
+                symbol: "BTCUSDT",
+                status: "ENABLED",
+                baseAsset: "BTC",
+                quoteAsset: "USDT",
+              },
+              {
+                symbol: "ETHUSDT",
+                status: "ENABLED",
+                baseAsset: "ETH",
+                quoteAsset: "USDT",
+              },
+              {
+                symbol: "OLDUSDT",
+                status: "DISABLED",
+                baseAsset: "OLD",
+                quoteAsset: "USDT",
+              },
+            ],
+          },
+        } as never;
+      }
+
       if (options.path === "/api/v3/ticker/24hr") {
         return {
           status: 200,

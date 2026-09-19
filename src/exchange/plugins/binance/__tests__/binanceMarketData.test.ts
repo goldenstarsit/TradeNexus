@@ -7,6 +7,35 @@ const requests: HttpRequest[] = [];
 const client = createBinanceMarketDataClient({
   async request<T>(request: HttpRequest): Promise<HttpResponse<T>> {
     requests.push(request);
+    if (request.path === "/api/v3/exchangeInfo") {
+      return {
+        status: 200,
+        headers: new Headers(),
+        data: {
+          symbols: [
+            {
+              symbol: "BTCUSDT",
+              status: "TRADING",
+              baseAsset: "BTC",
+              quoteAsset: "USDT",
+            },
+            {
+              symbol: "ETHUSDT",
+              status: "TRADING",
+              baseAsset: "ETH",
+              quoteAsset: "USDT",
+            },
+            {
+              symbol: "OLDUSDT",
+              status: "BREAK",
+              baseAsset: "OLD",
+              quoteAsset: "USDT",
+            },
+          ],
+        } as T,
+      };
+    }
+
     if (request.path === "/api/v3/ticker/24hr") {
       return {
         status: 200,
@@ -38,6 +67,24 @@ const client = createBinanceMarketDataClient({
 });
 
 async function run() {
+const symbols = await client.getSymbols();
+assert.equal(symbols.length, 2);
+assert.deepEqual(symbols[0], {
+  exchangeSymbol: "BTCUSDT",
+  baseAsset: { symbol: "BTC" },
+  quoteAsset: { symbol: "USDT" },
+  marketType: "spot",
+});
+assert.equal((await client.getSymbol(" ethusdt "))?.exchangeSymbol, "ETHUSDT");
+assert.equal(await client.getSymbol("UNKNOWN"), undefined);
+
+const symbolsAgain = await client.getSymbols();
+assert.equal(symbolsAgain, symbols);
+assert.equal(
+  requests.filter((request) => request.path === "/api/v3/exchangeInfo").length,
+  1,
+);
+
 const ticker = await client.getTicker("btcusdt");
 assert.equal(ticker.symbol, "BTCUSDT");
 assert.equal(ticker.lastPrice, 100000.5);
@@ -49,11 +96,18 @@ assert.equal(orderBook.symbol, "BTCUSDT");
 assert.deepEqual(orderBook.bids[0], { price: 100000, quantity: 0.1 });
 assert.deepEqual(orderBook.asks[0], { price: 100001, quantity: 0.11 });
 
-assert.equal(requests[0].path, "/api/v3/ticker/24hr");
-assert.equal(requests[0].query?.symbol, "BTCUSDT");
-assert.equal(requests[1].path, "/api/v3/depth");
-assert.equal(requests[1].query?.symbol, "BTCUSDT");
-assert.equal(requests[1].query?.limit, 20);
+const tickerRequest = requests.find(
+  (request) => request.path === "/api/v3/ticker/24hr",
+);
+assert.ok(tickerRequest);
+assert.equal(tickerRequest.query?.symbol, "BTCUSDT");
+
+const depthRequest = requests.find(
+  (request) => request.path === "/api/v3/depth",
+);
+assert.ok(depthRequest);
+assert.equal(depthRequest.query?.symbol, "BTCUSDT");
+assert.equal(depthRequest.query?.limit, 20);
 
 console.log("M37 Binance market data verification: OK");
 }

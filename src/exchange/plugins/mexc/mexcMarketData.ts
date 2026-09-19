@@ -1,7 +1,11 @@
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
+import type { TradingSymbol } from "../../domain/symbol";
+import { createTradingSymbol } from "../../domain/symbol";
 
 export interface MexcMarketDataClient {
+  getSymbols(): Promise<readonly TradingSymbol[]>;
+  getSymbol(symbol: string): Promise<TradingSymbol | undefined>;
   getTicker(symbol: string): Promise<MarketTicker>;
   getOrderBook(symbol: string, limit?: number): Promise<OrderBook>;
 }
@@ -23,6 +27,17 @@ interface MexcOrderBookResponse {
   asks: [string, string][];
 }
 
+interface MexcExchangeInfoSymbol {
+  symbol: string;
+  status: string;
+  baseAsset: string;
+  quoteAsset: string;
+}
+
+interface MexcExchangeInfoResponse {
+  symbols: MexcExchangeInfoSymbol[];
+}
+
 function toNumber(value: string): number {
   const number = Number(value);
   if (!Number.isFinite(number)) {
@@ -34,7 +49,43 @@ function toNumber(value: string): number {
 export function createMexcMarketDataClient(
   httpClient: ExchangeHttpClient,
 ): MexcMarketDataClient {
+  let symbolsCache: readonly TradingSymbol[] | undefined;
+
+  async function loadSymbols(): Promise<readonly TradingSymbol[]> {
+    if (symbolsCache) return symbolsCache;
+
+    const response = await httpClient.request<MexcExchangeInfoResponse>({
+      method: "GET",
+      path: "/api/v3/exchangeInfo",
+    });
+
+    const symbols = response.data.symbols
+      .filter((item) => item.status === "ENABLED")
+      .map((item) =>
+        createTradingSymbol({
+          exchangeSymbol: item.symbol,
+          baseAsset: item.baseAsset,
+          quoteAsset: item.quoteAsset,
+          marketType: "spot",
+        }),
+      );
+
+    symbolsCache = Object.freeze(symbols);
+    return symbolsCache;
+  }
+
   return {
+    async getSymbols() {
+      return loadSymbols();
+    },
+
+    async getSymbol(symbol) {
+      const normalized = symbol.trim().toUpperCase();
+      return (await loadSymbols()).find(
+        (item) => item.exchangeSymbol === normalized,
+      );
+    },
+
     async getTicker(symbol) {
       const response = await httpClient.request<MexcTickerResponse>({
         method: "GET",

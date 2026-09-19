@@ -8,6 +8,36 @@ class FakeHttpClient implements ExchangeHttpClient {
   async request<T>(request: HttpRequest): Promise<HttpResponse<T>> {
     this.requests.push(request);
 
+    if (request.path === "/v1/common/symbols") {
+      return {
+        status: 200,
+        headers: new Headers(),
+        data: {
+          status: "ok",
+          data: [
+            {
+              symbol: "btcusdt",
+              "base-currency": "btc",
+              "quote-currency": "usdt",
+              state: "online",
+            },
+            {
+              symbol: "ethusdt",
+              "base-currency": "eth",
+              "quote-currency": "usdt",
+              state: "online",
+            },
+            {
+              symbol: "oldusdt",
+              "base-currency": "old",
+              "quote-currency": "usdt",
+              state: "offline",
+            },
+          ],
+        } as T,
+      };
+    }
+
     if (request.path === "/market/detail/merged") {
       return {
         status: 200,
@@ -45,6 +75,26 @@ async function run() {
   const httpClient = new FakeHttpClient();
   const client = createHtxMarketDataClient(httpClient);
 
+  const symbols = await client.getSymbols();
+  assert.equal(symbols.length, 2);
+  assert.deepEqual(symbols[0], {
+    exchangeSymbol: "BTCUSDT",
+    baseAsset: { symbol: "BTC" },
+    quoteAsset: { symbol: "USDT" },
+    marketType: "spot",
+  });
+  assert.equal((await client.getSymbol(" ethusdt "))?.exchangeSymbol, "ETHUSDT");
+  assert.equal(await client.getSymbol("UNKNOWN"), undefined);
+
+  const symbolsAgain = await client.getSymbols();
+  assert.equal(symbolsAgain, symbols);
+  assert.equal(
+    httpClient.requests.filter(
+      (request) => request.path === "/v1/common/symbols",
+    ).length,
+    1,
+  );
+
   const ticker = await client.getTicker(" BTCUSDT ");
   assert.deepEqual(ticker, {
     symbol: "BTCUSDT",
@@ -58,7 +108,10 @@ async function run() {
     timestamp: 1700000000123,
   });
 
-  assert.deepEqual(httpClient.requests[0], {
+  const tickerRequest = httpClient.requests.find(
+    (request) => request.path === "/market/detail/merged",
+  );
+  assert.deepEqual(tickerRequest, {
     method: "GET",
     path: "/market/detail/merged",
     query: { symbol: "btcusdt" },
@@ -78,7 +131,10 @@ async function run() {
     timestamp: 1700000000456,
   });
 
-  assert.deepEqual(httpClient.requests[1], {
+  const orderBookRequest = httpClient.requests.find(
+    (request) => request.path === "/market/depth",
+  );
+  assert.deepEqual(orderBookRequest, {
     method: "GET",
     path: "/market/depth",
     query: { symbol: "btcusdt", type: "step0", depth: 10 },

@@ -9,6 +9,8 @@ async function run(): Promise<void> {
     marketData: {
       async getTicker() { throw new Error("test market data client should not be called"); },
       async getOrderBook() { throw new Error("test market data client should not be called"); },
+      async getSymbols() { throw new Error("test market data client should not be called"); },
+      async getSymbol() { throw new Error("test market data client should not be called"); },
     },
     account: {
       async getBalances() { throw new Error("test account client should not be called"); },

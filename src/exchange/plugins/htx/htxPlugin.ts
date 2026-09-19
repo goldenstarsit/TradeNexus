@@ -46,11 +46,11 @@ export class HtxPlugin implements ExchangePlugin {
   constructor(private readonly clients: HtxPluginClients) {}
 
   async getSymbols(): Promise<readonly TradingSymbol[]> {
-    return [];
+    return this.clients.marketData.getSymbols();
   }
 
-  async getSymbol(_symbol: string): Promise<TradingSymbol | undefined> {
-    return undefined;
+  async getSymbol(symbol: string): Promise<TradingSymbol | undefined> {
+    return this.clients.marketData.getSymbol(symbol);
   }
 
   async getTicker(symbol: string): Promise<MarketTicker> {

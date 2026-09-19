@@ -1,7 +1,11 @@
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
+import type { TradingSymbol } from "../../domain/symbol";
+import { createTradingSymbol } from "../../domain/symbol";
 
 export interface HtxMarketDataClient {
+  getSymbols(): Promise<readonly TradingSymbol[]>;
+  getSymbol(symbol: string): Promise<TradingSymbol | undefined>;
   getTicker(symbol: string): Promise<MarketTicker>;
   getOrderBook(symbol: string, limit?: number): Promise<OrderBook>;
 }
@@ -27,6 +31,16 @@ interface HtxDepthResponse {
   };
 }
 
+interface HtxSymbolResponse {
+  status: string;
+  data: Array<{
+    symbol: string;
+    "base-currency": string;
+    "quote-currency": string;
+    state: string;
+  }>;
+}
+
 function toNumber(value: number | string): number {
   const number = Number(value);
   if (!Number.isFinite(number)) {
@@ -48,7 +62,43 @@ function normalizeDepth(limit: number | undefined): number | undefined {
 export function createHtxMarketDataClient(
   httpClient: ExchangeHttpClient,
 ): HtxMarketDataClient {
+  let symbolsCache: readonly TradingSymbol[] | undefined;
+
+  async function loadSymbols(): Promise<readonly TradingSymbol[]> {
+    if (symbolsCache) return symbolsCache;
+
+    const response = await httpClient.request<HtxSymbolResponse>({
+      method: "GET",
+      path: "/v1/common/symbols",
+    });
+
+    const symbols = response.data.data
+      .filter((item) => item.state === "online")
+      .map((item) =>
+        createTradingSymbol({
+          exchangeSymbol: item.symbol,
+          baseAsset: item["base-currency"],
+          quoteAsset: item["quote-currency"],
+          marketType: "spot",
+        }),
+      );
+
+    symbolsCache = Object.freeze(symbols);
+    return symbolsCache;
+  }
+
   return {
+    async getSymbols() {
+      return loadSymbols();
+    },
+
+    async getSymbol(symbol) {
+      const normalized = symbol.trim().toUpperCase();
+      return (await loadSymbols()).find(
+        (item) => item.exchangeSymbol === normalized,
+      );
+    },
+
     async getTicker(symbol) {
       const normalizedSymbol = normalizeSymbol(symbol);
       const response = await httpClient.request<HtxTickerResponse>({

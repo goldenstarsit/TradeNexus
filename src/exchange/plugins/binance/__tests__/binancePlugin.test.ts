@@ -15,6 +15,12 @@ const clients = {
     async getOrderBook() {
       throw new Error("test market data client should not be called");
     },
+    async getSymbols() {
+      throw new Error("test market data client should not be called");
+    },
+    async getSymbol() {
+      throw new Error("test market data client should not be called");
+    },
   },
   account: {
     async getBalances() {

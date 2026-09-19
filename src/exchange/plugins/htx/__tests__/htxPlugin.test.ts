@@ -53,6 +53,14 @@ async function run() {
         calls.push(`book:${symbol}:${limit ?? "default"}`);
         return orderBook;
       },
+      async getSymbols() {
+        calls.push("symbols");
+        return [];
+      },
+      async getSymbol(symbol) {
+        calls.push(`symbol:${symbol}`);
+        return undefined;
+      },
     },
     account: {
       async getBalances(asset) {
@@ -113,6 +121,8 @@ async function run() {
   assert.deepEqual(await plugin.cancelAllOrders(), [order]);
 
   assert.deepEqual(calls, [
+    "symbols",
+    "symbol:BTCUSDT",
     "ticker:BTCUSDT",
     "book:BTCUSDT:20",
     "balance:USDT",
