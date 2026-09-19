@@ -43,6 +43,7 @@ export interface OrderExecutionResult {
   readonly fee: readonly ExecutionFee[];
   readonly fills: readonly Fill[];
   readonly attempts: readonly ExecutionAttempt[];
+  readonly reportedExecutedQuantity?: number;
   readonly takerFallbackUsed: boolean;
   readonly createdAt: number;
   readonly executedAt?: number;
@@ -176,6 +177,7 @@ export function createOrderExecutionResult(input: {
   readonly requestedQuantity: number;
   readonly fills: readonly Fill[];
   readonly attempts?: readonly ExecutionAttempt[];
+  readonly reportedExecutedQuantity?: number;
   readonly createdAt: number;
   readonly executedAt?: number;
   readonly updatedAt: number;
@@ -226,10 +228,23 @@ export function createOrderExecutionResult(input: {
   }
 
   const fills = normalizeFills(input.fills);
-  const executedQuantity = fills.reduce(
+  const fillExecutedQuantity = fills.reduce(
     (total, fill) => total + fill.quantity,
     0,
   );
+
+  const reportedExecutedQuantity =
+    input.reportedExecutedQuantity === undefined
+      ? undefined
+      : nonNegative(
+          input.reportedExecutedQuantity,
+          "Reported executed quantity",
+        );
+
+  const executedQuantity =
+    fillExecutedQuantity > 0
+      ? fillExecutedQuantity
+      : (reportedExecutedQuantity ?? 0);
 
   if (executedQuantity > requestedQuantity + 1e-12) {
     throw new Error(
@@ -282,6 +297,9 @@ export function createOrderExecutionResult(input: {
     fee: calculateExecutionFees(fills),
     fills,
     attempts,
+    ...(reportedExecutedQuantity === undefined
+      ? {}
+      : { reportedExecutedQuantity }),
     takerFallbackUsed,
     createdAt: timestamp(input.createdAt, "Created timestamp"),
     ...(input.executedAt === undefined

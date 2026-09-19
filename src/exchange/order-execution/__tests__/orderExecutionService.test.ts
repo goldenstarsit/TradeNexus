@@ -119,6 +119,34 @@ test("makerOnly creates a maker result with fills", async () => {
   assert.equal(result.attempts.length, 1);
 });
 
+test("filled order preserves exchange-reported quantity when fills are unavailable", async () => {
+  const plugin = makePlugin(
+    async () =>
+      makeOrder({
+        executedQuantity: 1,
+        remainingQuantity: 0,
+        status: "filled",
+      }),
+    async () => [],
+  );
+
+  const service = createOrderExecutionService(plugin);
+
+  const result = await service.execute({
+    symbol: "BTCUSDT",
+    side: "buy",
+    quantity: 1,
+    makerPrice: 100,
+    executionMode: "makerOnly",
+  });
+
+  assert.equal(result.status, "filled");
+  assert.equal(result.executedQuantity, 1);
+  assert.equal(result.remainingQuantity, 0);
+  assert.equal(result.reportedExecutedQuantity, 1);
+});
+
+
 test("takerOnly creates a taker result", async () => {
   let receivedType = "";
   const plugin = makePlugin(
@@ -293,4 +321,88 @@ test("hybrid uses taker after ExchangeError maker liquidity rejection", async ()
   assert.deepEqual(types, ["makerOnly", "market"]);
   assert.equal(result.executionType, "taker");
   assert.equal(result.takerFallbackUsed, true);
+});
+
+test("fill quantity takes precedence over exchange-reported quantity", async () => {
+  const plugin = makePlugin(
+    async () =>
+      makeOrder({
+        executedQuantity: 1,
+        remainingQuantity: 0,
+        status: "filled",
+      }),
+    async () => [
+      makeFill({
+        quantity: 0.4,
+        quoteQuantity: 40,
+      }),
+    ],
+  );
+
+  const service = createOrderExecutionService(plugin);
+
+  const result = await service.execute({
+    symbol: "BTCUSDT",
+    side: "buy",
+    quantity: 1,
+    makerPrice: 100,
+    executionMode: "makerOnly",
+  });
+
+  assert.equal(result.executedQuantity, 0.4);
+  assert.equal(result.remainingQuantity, 0.6);
+  assert.equal(result.reportedExecutedQuantity, 1);
+  assert.equal(result.averagePrice, 100);
+});
+
+test("partially filled order preserves exchange-reported quantity when fills are unavailable", async () => {
+  const plugin = makePlugin(
+    async () =>
+      makeOrder({
+        executedQuantity: 0.4,
+        remainingQuantity: 0.6,
+        status: "partiallyFilled",
+      }),
+    async () => [],
+  );
+
+  const service = createOrderExecutionService(plugin);
+
+  const result = await service.execute({
+    symbol: "BTCUSDT",
+    side: "buy",
+    quantity: 1,
+    makerPrice: 100,
+    executionMode: "makerOnly",
+  });
+
+  assert.equal(result.status, "partiallyFilled");
+  assert.equal(result.executedQuantity, 0.4);
+  assert.equal(result.remainingQuantity, 0.6);
+  assert.equal(result.reportedExecutedQuantity, 0.4);
+});
+
+test("reported executed quantity cannot exceed requested quantity", async () => {
+  const plugin = makePlugin(
+    async () =>
+      makeOrder({
+        executedQuantity: 1.1,
+        remainingQuantity: 0,
+        status: "filled",
+      }),
+    async () => [],
+  );
+
+  const service = createOrderExecutionService(plugin);
+
+  await assert.rejects(
+    service.execute({
+      symbol: "BTCUSDT",
+      side: "buy",
+      quantity: 1,
+      makerPrice: 100,
+      executionMode: "makerOnly",
+    }),
+    /Executed quantity cannot exceed requested execution quantity/,
+  );
 });

@@ -139,6 +139,7 @@ function resultFromOrder(input: {
     requestedQuantity: input.request.quantity,
     fills: input.fills,
     attempts: input.attempts,
+    reportedExecutedQuantity: input.order.executedQuantity,
     createdAt: input.createdAt,
     executedAt: input.executedAt,
     updatedAt: input.order.updatedAt,
@@ -219,8 +220,11 @@ export function createOrderExecutionService(
       });
     }
 
+    let makerOrder: Order;
+    let makerFills: readonly Fill[];
+
     try {
-      const order = await plugin.placeOrder({
+      makerOrder = await plugin.placeOrder({
         symbol: request.symbol,
         side: request.side,
         type: "makerOnly" satisfies OrderType,
@@ -232,21 +236,10 @@ export function createOrderExecutionService(
       });
 
       attempts.push(
-        createAttempt("maker", "success", now(), order),
+        createAttempt("maker", "success", now(), makerOrder),
       );
 
-      const fills = await getFills(plugin, order, request.symbol);
-
-      return resultFromOrder({
-        order,
-        exchange: plugin.metadata.id,
-        request,
-        executionType: "maker",
-        fills,
-        attempts,
-            createdAt,
-        executedAt: order.status === "filled" ? order.updatedAt : undefined,
-      });
+      makerFills = await getFills(plugin, makerOrder, request.symbol);
     } catch (error) {
       const reason =
         error instanceof Error ? error.message : String(error);
@@ -268,6 +261,25 @@ export function createOrderExecutionService(
           createdAt,
         });
       }
+
+      makerOrder = undefined as never;
+      makerFills = [];
+    }
+
+    if (makerOrder !== undefined) {
+      return resultFromOrder({
+        order: makerOrder,
+        exchange: plugin.metadata.id,
+        request,
+        executionType: "maker",
+        fills: makerFills,
+        attempts,
+        createdAt,
+        executedAt:
+          makerOrder.status === "filled"
+            ? makerOrder.updatedAt
+            : undefined,
+      });
     }
 
     const takerOrder = await plugin.placeOrder({
