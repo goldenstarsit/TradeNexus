@@ -18,12 +18,11 @@ const BINANCE_METADATA: ExchangeMetadata = createExchangeMetadata({
   name: "Binance",
   status: "disabled",
   baseUrl: "https://api.binance.com",
-  marketTypes: ["spot", "futures"],
+  marketTypes: ["spot"],
 });
 
 const BINANCE_CAPABILITIES: ExchangeCapabilities = createExchangeCapabilities("binance", [
   "spot",
-  "futures",
   "marketOrders",
   "limitOrders",
   "makerOnlyOrders",

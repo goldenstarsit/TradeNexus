@@ -87,7 +87,7 @@ async function run() {
   assert.equal(plugin.metadata.id, "htx");
   assert.equal(plugin.metadata.name, "HTX");
   assert.equal(plugin.metadata.baseUrl, "https://api.huobi.pro");
-  assert.deepEqual(plugin.metadata.marketTypes, ["spot", "futures"]);
+  assert.deepEqual(plugin.metadata.marketTypes, ["spot"]);
   assert.equal(plugin.metadata.status, "disabled");
   assert.strictEqual(plugin.capabilities, HTX_CAPABILITIES);
   assert.strictEqual(plugin.metadata, HTX_METADATA);

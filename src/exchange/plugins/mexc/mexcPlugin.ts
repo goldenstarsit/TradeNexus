@@ -16,12 +16,11 @@ const MEXC_METADATA: ExchangeMetadata = createExchangeMetadata({
   name: "MEXC",
   status: "disabled",
   baseUrl: "https://api.mexc.com",
-  marketTypes: ["spot", "futures"],
+  marketTypes: ["spot"],
 });
 
 const MEXC_CAPABILITIES: ExchangeCapabilities = createExchangeCapabilities("mexc", [
   "spot",
-  "futures",
   "marketOrders",
   "limitOrders",
   "makerOnlyOrders",

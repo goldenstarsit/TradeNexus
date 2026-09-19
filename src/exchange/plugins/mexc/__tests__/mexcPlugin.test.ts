@@ -87,7 +87,7 @@ async function run() {
   assert.equal(plugin.metadata.id, "mexc");
   assert.equal(plugin.metadata.name, "MEXC");
   assert.equal(plugin.metadata.baseUrl, "https://api.mexc.com");
-  assert.deepEqual(plugin.metadata.marketTypes, ["spot", "futures"]);
+  assert.deepEqual(plugin.metadata.marketTypes, ["spot"]);
   assert.equal(plugin.metadata.status, "disabled");
   assert.strictEqual(plugin.capabilities, MEXC_CAPABILITIES);
   assert.strictEqual(plugin.metadata, MEXC_METADATA);

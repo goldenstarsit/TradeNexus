@@ -16,12 +16,11 @@ const HTX_METADATA: ExchangeMetadata = createExchangeMetadata({
   name: "HTX",
   status: "disabled",
   baseUrl: "https://api.huobi.pro",
-  marketTypes: ["spot", "futures"],
+  marketTypes: ["spot"],
 });
 
 const HTX_CAPABILITIES: ExchangeCapabilities = createExchangeCapabilities("htx", [
   "spot",
-  "futures",
   "marketOrders",
   "limitOrders",
   "makerOnlyOrders",

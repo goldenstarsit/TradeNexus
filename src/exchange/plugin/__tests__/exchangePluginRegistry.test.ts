@@ -82,14 +82,23 @@ async function run(): Promise<void> {
   );
 
   assert.throws(
-    () =>
-      registry.register({
-        ...binance,
-        metadata: {
-          ...binance.metadata,
-          marketTypes: ["spot"],
+    () => {
+      const invalidPlugin = Object.create(binance);
+
+      Object.defineProperty(invalidPlugin, "capabilities", {
+        value: {
+          exchangeId: "binance",
+          supports(capability: string) {
+            return capability === "futures" || capability === "spot";
+          },
         },
-      } as never),
+        writable: true,
+        configurable: true,
+      });
+
+      const capabilityMismatchRegistry = createExchangePluginRegistry();
+      capabilityMismatchRegistry.register(invalidPlugin);
+    },
     /Exchange plugin capability market type mismatch: binance:futures/,
   );
 

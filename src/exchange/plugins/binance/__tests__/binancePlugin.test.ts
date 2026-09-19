@@ -45,7 +45,7 @@ const plugin = new BinancePlugin(clients);
 assert.equal(plugin.metadata.id, "binance");
 assert.equal(plugin.metadata.name, "Binance");
 assert.equal(plugin.metadata.baseUrl, "https://api.binance.com");
-assert.deepEqual(plugin.metadata.marketTypes, ["spot", "futures"]);
+assert.deepEqual(plugin.metadata.marketTypes, ["spot"]);
 assert.equal(plugin.metadata.status, "disabled");
 assert.equal(plugin.capabilities, BINANCE_CAPABILITIES);
 assert.equal(plugin.capabilities.supports("spot"), true);
