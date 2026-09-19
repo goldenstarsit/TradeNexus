@@ -1,6 +1,10 @@
 import type { OrderExecutionMode } from "../order-execution/orderExecutionMode";
 import type { Fill } from "../fill/fill";
-import type { OrderSide } from "../order/order";
+import {
+  isOrderStatus,
+  type OrderStatus,
+  type OrderSide,
+} from "../order/order";
 
 export const EXECUTION_TYPES = ["maker", "taker"] as const;
 export type ExecutionType = (typeof EXECUTION_TYPES)[number];
@@ -35,6 +39,7 @@ export interface OrderExecutionResult {
   readonly executionMode: OrderExecutionMode;
   readonly executionType: ExecutionType;
   readonly status: ExecutionResultStatus;
+  readonly orderStatus?: OrderStatus;
   readonly requestedQuantity: number;
   readonly executedQuantity: number;
   readonly remainingQuantity: number;
@@ -174,6 +179,7 @@ export function createOrderExecutionResult(input: {
   readonly executionMode: OrderExecutionMode;
   readonly executionType: ExecutionType;
   readonly status: ExecutionResultStatus;
+  readonly orderStatus?: OrderStatus;
   readonly requestedQuantity: number;
   readonly fills: readonly Fill[];
   readonly attempts?: readonly ExecutionAttempt[];
@@ -210,6 +216,15 @@ export function createOrderExecutionResult(input: {
   if (!isExecutionResultStatus(input.status)) {
     throw new Error(
       `Unsupported execution result status: ${String(input.status)}`,
+    );
+  }
+
+  if (
+    input.orderStatus !== undefined &&
+    !isOrderStatus(input.orderStatus)
+  ) {
+    throw new Error(
+      `Unsupported order status: ${String(input.orderStatus)}`,
     );
   }
 
@@ -272,6 +287,9 @@ export function createOrderExecutionResult(input: {
   }
 
   const result: OrderExecutionResult = {
+    ...(input.orderStatus === undefined
+      ? {}
+      : { orderStatus: input.orderStatus }),
     ...(input.orderId === undefined
       ? {}
       : { orderId: requiredString(input.orderId, "Order ID") }),

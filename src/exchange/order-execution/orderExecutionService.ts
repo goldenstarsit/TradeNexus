@@ -136,6 +136,7 @@ function resultFromOrder(input: {
     executionMode: input.request.executionMode,
     executionType: input.executionType,
     status,
+    orderStatus: input.order.status,
     requestedQuantity: input.request.quantity,
     fills: input.fills,
     attempts: input.attempts,

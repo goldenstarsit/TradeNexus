@@ -163,3 +163,66 @@ test("execution result is immutable", () => {
   assert.equal(Object.isFrozen(result.fee), true);
   assert.equal(Object.isFrozen(result.fills), true);
 });
+
+test("preserves exchange order lifecycle status", () => {
+  const result = createOrderExecutionResult({
+    exchange: "MEXC",
+    symbol: "BTCUSDT",
+    side: "buy",
+    executionMode: "makerOnly",
+    executionType: "maker",
+    status: "failed",
+    orderStatus: "partiallyFilled",
+    requestedQuantity: 0.01,
+    fills: [],
+    reportedExecutedQuantity: 0.004,
+    createdAt: 1000,
+    updatedAt: 1001,
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.orderStatus, "partiallyFilled");
+  assert.equal(result.executedQuantity, 0.004);
+  assert.equal(Object.isFrozen(result), true);
+});
+
+test("rejects unsupported exchange order lifecycle status", () => {
+  assert.throws(
+    () =>
+      createOrderExecutionResult({
+        exchange: "MEXC",
+        symbol: "BTCUSDT",
+        side: "buy",
+        executionMode: "makerOnly",
+        executionType: "maker",
+        status: "failed",
+        orderStatus: "unsupported" as never,
+        requestedQuantity: 0.01,
+        fills: [],
+        createdAt: 1000,
+        updatedAt: 1000,
+      }),
+    /Unsupported order status: unsupported/,
+  );
+});
+
+test("preserves filled lifecycle status independently from execution result status", () => {
+  const result = createOrderExecutionResult({
+    exchange: "MEXC",
+    symbol: "BTCUSDT",
+    side: "buy",
+    executionMode: "makerOnly",
+    executionType: "maker",
+    status: "filled",
+    orderStatus: "filled",
+    requestedQuantity: 0.01,
+    fills: [fill("fill-status-1", 100, 0.01, 0.001)],
+    createdAt: 1000,
+    executedAt: 1001,
+    updatedAt: 1001,
+  });
+
+  assert.equal(result.status, "filled");
+  assert.equal(result.orderStatus, "filled");
+  assert.equal(result.executedQuantity, 0.01);
+});

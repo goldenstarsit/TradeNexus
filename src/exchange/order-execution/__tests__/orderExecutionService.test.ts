@@ -406,3 +406,82 @@ test("reported executed quantity cannot exceed requested quantity", async () => 
     /Executed quantity cannot exceed requested execution quantity/,
   );
 });
+
+test("preserves exchange order lifecycle status for open orders", async () => {
+  const plugin = makePlugin(
+    async () =>
+      makeOrder({
+        id: "order-open",
+        status: "open",
+        executedQuantity: 0,
+        remainingQuantity: 1,
+      }),
+    async () => [],
+  );
+
+  const result = await createOrderExecutionService(plugin).execute({
+    symbol: "BTCUSDT",
+    side: "buy",
+    quantity: 1,
+    makerPrice: 100,
+    executionMode: "makerOnly",
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.orderStatus, "open");
+});
+
+test("preserves canceled, rejected, and expired lifecycle statuses", async () => {
+  for (const orderStatus of ["canceled", "rejected", "expired"] as const) {
+    const plugin = makePlugin(
+      async () =>
+        makeOrder({
+          id: `order-${orderStatus}`,
+          status: orderStatus,
+          executedQuantity: 0,
+          remainingQuantity: 1,
+        }),
+      async () => [],
+    );
+
+    const result = await createOrderExecutionService(plugin).execute({
+      symbol: "BTCUSDT",
+      side: "buy",
+      quantity: 1,
+      makerPrice: 100,
+      executionMode: "makerOnly",
+    });
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.orderStatus, orderStatus);
+  }
+});
+
+test("preserves filled and partially filled lifecycle statuses separately from execution outcome", async () => {
+  for (const [orderStatus, expectedResultStatus] of [
+    ["filled", "filled"],
+    ["partiallyFilled", "partiallyFilled"],
+  ] as const) {
+    const plugin = makePlugin(
+      async () =>
+        makeOrder({
+          id: `order-${orderStatus}`,
+          status: orderStatus,
+          executedQuantity: orderStatus === "filled" ? 1 : 0.4,
+          remainingQuantity: orderStatus === "filled" ? 0 : 0.6,
+        }),
+      async () => [],
+    );
+
+    const result = await createOrderExecutionService(plugin).execute({
+      symbol: "BTCUSDT",
+      side: "buy",
+      quantity: 1,
+      makerPrice: 100,
+      executionMode: "makerOnly",
+    });
+
+    assert.equal(result.status, expectedResultStatus);
+    assert.equal(result.orderStatus, orderStatus);
+  }
+});
