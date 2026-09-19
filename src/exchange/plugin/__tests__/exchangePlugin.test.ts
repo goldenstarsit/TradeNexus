@@ -21,6 +21,7 @@ test("exchange plugin contract exposes required metadata, capabilities and tradi
     "placeOrder",
     "cancelOrder",
     "cancelAllOrders",
+    "getOrderFills",
   ];
 
   const metadata: ExchangeMetadata = {
@@ -90,6 +91,7 @@ test("exchange plugin contract exposes required metadata, capabilities and tradi
     placeOrder: async (_request: ExchangeOrderRequest) => order,
     cancelOrder: async () => order,
     cancelAllOrders: async () => [],
+    getOrderFills: async () => [],
   };
 
   for (const method of methods) {

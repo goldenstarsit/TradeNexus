@@ -6,10 +6,12 @@ import type { TradingSymbol } from "../../domain/symbol";
 import type { BalanceSnapshot } from "../../balance/balance";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
 import type { Order } from "../../order/order";
+import type { Fill } from "../../fill/fill";
 import type { ExchangePlugin, ExchangeOrderRequest } from "../../plugin/exchangePlugin";
 import type { HtxMarketDataClient } from "./htxMarketData";
 import type { HtxAccountClient } from "./htxAccount";
 import type { HtxOrderClient } from "./htxOrder";
+import type { HtxFillClient } from "./htxFill";
 
 const HTX_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "htx",
@@ -37,6 +39,7 @@ export interface HtxPluginClients {
   readonly marketData: HtxMarketDataClient;
   readonly account: HtxAccountClient;
   readonly order: HtxOrderClient;
+  readonly fill: HtxFillClient;
 }
 
 export class HtxPlugin implements ExchangePlugin {
@@ -71,6 +74,10 @@ export class HtxPlugin implements ExchangePlugin {
 
   async getOrder(orderId: string, symbol: string): Promise<Order> {
     return this.clients.order.getOrder(orderId, symbol);
+  }
+
+  async getOrderFills(orderId: string, symbol: string): Promise<readonly Fill[]> {
+    return this.clients.fill.getOrderFills(orderId, symbol);
   }
 
   async placeOrder(request: ExchangeOrderRequest): Promise<Order> {

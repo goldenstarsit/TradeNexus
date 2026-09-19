@@ -15,6 +15,9 @@ async function run(): Promise<void> {
     account: {
       async getBalances() { throw new Error("test account client should not be called"); },
     },
+    fill: {
+      async getOrderFills() { throw new Error("test fill client should not be called"); },
+    },
     order: {
       async getOpenOrders() { throw new Error("test order client should not be called"); },
       async getOrder() { throw new Error("test order client should not be called"); },

@@ -5,11 +5,13 @@ import { createExchangeMetadata } from "../../domain/exchangeMetadata";
 import type { BalanceSnapshot } from "../../balance/balance";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
 import type { Order } from "../../order/order";
+import type { Fill } from "../../fill/fill";
 import type { TradingSymbol } from "../../domain/symbol";
 import type { ExchangePlugin, ExchangeOrderRequest } from "../../plugin/exchangePlugin";
 import type { MexcMarketDataClient } from "./mexcMarketData";
 import type { MexcAccountClient } from "./mexcAccount";
 import type { MexcOrderClient } from "./mexcOrder";
+import type { MexcFillClient } from "./mexcFill";
 
 const MEXC_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "mexc",
@@ -37,6 +39,7 @@ export interface MexcPluginClients {
   readonly marketData: MexcMarketDataClient;
   readonly account: MexcAccountClient;
   readonly order: MexcOrderClient;
+  readonly fill: MexcFillClient;
 }
 
 export class MexcPlugin implements ExchangePlugin {
@@ -71,6 +74,10 @@ export class MexcPlugin implements ExchangePlugin {
 
   async getOrder(orderId: string, symbol: string): Promise<Order> {
     return this.clients.order.getOrder(orderId, symbol);
+  }
+
+  async getOrderFills(orderId: string, symbol: string): Promise<readonly Fill[]> {
+    return this.clients.fill.getOrderFills(orderId, symbol);
   }
 
   async placeOrder(request: ExchangeOrderRequest): Promise<Order> {

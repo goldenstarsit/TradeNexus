@@ -68,6 +68,12 @@ async function run() {
         return balance;
       },
     },
+    fill: {
+      async getOrderFills() {
+        calls.push("fills");
+        return [];
+      },
+    },
     order: {
       async getOpenOrders(symbol) {
         calls.push(`open:${symbol ?? "all"}`);

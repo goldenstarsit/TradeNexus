@@ -9,9 +9,11 @@ import type { TradingSymbol } from "../../domain/symbol";
 import type { MarketTicker, OrderBook } from "../../market-data/marketData";
 import type { BalanceSnapshot } from "../../balance/balance";
 import type { Order } from "../../order/order";
+import type { Fill } from "../../fill/fill";
 import type { BinanceMarketDataClient } from "./binanceMarketData";
 import type { BinanceAccountClient } from "./binanceAccount";
 import type { BinanceOrderClient } from "./binanceOrder";
+import type { BinanceFillClient } from "./binanceFill";
 
 const BINANCE_METADATA: ExchangeMetadata = createExchangeMetadata({
   id: "binance",
@@ -39,6 +41,7 @@ export interface BinancePluginClients {
   readonly marketData: BinanceMarketDataClient;
   readonly account: BinanceAccountClient;
   readonly order: BinanceOrderClient;
+  readonly fill: BinanceFillClient;
 }
 
 export class BinancePlugin implements ExchangePlugin {
@@ -73,6 +76,10 @@ export class BinancePlugin implements ExchangePlugin {
 
   async getOrder(orderId: string, symbol: string): Promise<Order> {
     return this.clients.order.getOrder(orderId, symbol);
+  }
+
+  async getOrderFills(orderId: string, symbol: string): Promise<readonly Fill[]> {
+    return this.clients.fill.getOrderFills(orderId, symbol);
   }
 
   async placeOrder(request: ExchangeOrderRequest): Promise<Order> {

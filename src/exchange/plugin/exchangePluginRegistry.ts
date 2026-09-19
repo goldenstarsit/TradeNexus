@@ -68,6 +68,7 @@ export function createExchangePluginRegistry(
       "getBalance",
       "getOpenOrders",
       "getOrder",
+      "getOrderFills",
       "placeOrder",
       "cancelOrder",
       "cancelAllOrders",

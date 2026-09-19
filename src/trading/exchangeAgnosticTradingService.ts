@@ -1,7 +1,7 @@
 import type { ExchangeId } from "../exchange/domain/exchangeId";
 import type { MarketType } from "../exchange/domain/marketType";
 import type { OrderSide } from "../exchange/order/order";
-import type { ExchangePlugin } from "../exchange/plugin/exchangePlugin";
+import type { ExchangePlugin, ExchangeOrderRequest } from "../exchange/plugin/exchangePlugin";
 import type { ExchangePluginRegistry } from "../exchange/plugin/exchangePluginRegistry";
 import type { ExchangeFailoverManager } from "../exchange/failover/exchangeFailoverManager";
 import type { SymbolMappingManager } from "../exchange/symbol-mapping/symbolMapping";
@@ -75,7 +75,7 @@ export function createExchangeAgnosticTradingService(
   function buildExchangeRequest(
     request: TradingOrderRequest,
     exchangeId: ExchangeId,
-  ): Record<string, unknown> {
+  ): ExchangeOrderRequest {
     const exchangeSymbol = getExchangeSymbol(
       exchangeId,
       request.symbol,
@@ -83,8 +83,14 @@ export function createExchangeAgnosticTradingService(
     );
 
     return {
-      ...request,
       symbol: exchangeSymbol,
+      side: request.side,
+      type: request.type as ExchangeOrderRequest["type"],
+      quantity: request.quantity,
+      ...(request.price !== undefined ? { price: request.price } : {}),
+      ...(request.clientOrderId !== undefined
+        ? { clientOrderId: request.clientOrderId }
+        : {}),
     };
   }
 

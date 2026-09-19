@@ -1,4 +1,5 @@
 import type { BalanceSnapshot } from "../balance/balance";
+import type { Fill } from "../fill/fill";
 import type { ExchangeCapabilities } from "../capabilities/exchangeCapabilities";
 import type { ExchangeMetadata } from "../domain/exchangeMetadata";
 import type { TradingSymbol } from "../domain/symbol";
@@ -23,6 +24,7 @@ export interface ExchangePlugin {
 
   getOpenOrders(symbol?: string): Promise<readonly Order[]>;
   getOrder(orderId: string, symbol: string): Promise<Order>;
+  getOrderFills(orderId: string, symbol: string): Promise<readonly Fill[]>;
 
   placeOrder(request: ExchangeOrderRequest): Promise<Order>;
 

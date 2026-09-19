@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import type { ExchangePlugin } from "../../exchange/plugin/exchangePlugin";
+import type { Fill } from "../../exchange/fill/fill";
+import type { Order } from "../../exchange/order/order";
 import { createExchangePluginRegistry } from "../../exchange/plugin/exchangePluginRegistry";
 import { createExchangeFailoverManager } from "../../exchange/failover/exchangeFailoverManager";
 import { createSymbolMappingManager } from "../../exchange/symbol-mapping/symbolMapping";
@@ -19,6 +21,13 @@ function createPlugin(
       baseUrl: `https://${exchangeId}.test`,
       marketTypes: ["spot"],
     },
+    capabilities: {
+      exchangeId,
+      supported: new Set(["spot"]),
+      supports(capability: string) {
+        return capability === "spot";
+      },
+    },
 
     async getSymbols() {
       return [];
@@ -29,40 +38,44 @@ function createPlugin(
     },
 
     async getTicker() {
-      return {};
+      return {} as never;
     },
 
     async getOrderBook() {
-      return {};
+      return {} as never;
     },
 
     async getBalance() {
-      return {};
+      return {} as never;
     },
 
     async getOpenOrders(symbol) {
       calls.push(`${exchangeId}:open:${symbol ?? "all"}`);
-      return [`${exchangeId}-open`];
+      return [`${exchangeId}-open`] as unknown as readonly Order[];
+    },
+
+    async getOrderFills() {
+      return [] as readonly Fill[];
     },
 
     async getOrder(orderId, symbol) {
       calls.push(`${exchangeId}:get:${orderId}:${symbol}`);
-      return { exchangeId, orderId, symbol };
+      return { exchangeId, orderId, symbol } as unknown as Order;
     },
 
     async placeOrder(request) {
       calls.push(`${exchangeId}:place:${String((request as { symbol?: unknown }).symbol)}`);
-      return request;
+      return request as unknown as Order;
     },
 
     async cancelOrder(orderId, symbol) {
       calls.push(`${exchangeId}:cancel:${orderId}:${symbol}`);
-      return { exchangeId, orderId, symbol };
+      return { exchangeId, orderId, symbol } as unknown as Order;
     },
 
     async cancelAllOrders(symbol) {
       calls.push(`${exchangeId}:cancel-all:${symbol ?? "all"}`);
-      return [`${exchangeId}-canceled`];
+      return [`${exchangeId}-canceled`] as unknown as readonly Order[];
     },
   };
 }
