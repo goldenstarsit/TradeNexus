@@ -8,3 +8,4 @@ export {
   isOrderStatus,
   isOrderTerminal,
 } from "./order";
+export * from "./orderIntent";

@@ -17,3 +17,5 @@ export * from "./plugin";
 export * from "./symbol-mapping";
 export * from "./health";
 export * from "./failover";
+export * from "./order-execution";
+export * from "./order-quantity";
