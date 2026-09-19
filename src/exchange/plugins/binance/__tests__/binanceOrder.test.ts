@@ -102,6 +102,29 @@ async function run() {
     /requires a symbol/,
   );
 
+  assert.rejects(
+    () =>
+      client.placeOrder({
+        symbol: "BTCUSDT",
+        side: "buy",
+        type: "stopMarket",
+        quantity: 0.001,
+      }),
+    /Unsupported Binance order type/,
+  );
+
+  assert.rejects(
+    () =>
+      client.placeOrder({
+        symbol: "BTCUSDT",
+        side: "buy",
+        type: "stopLimit",
+        quantity: 0.001,
+        price: 100000,
+      }),
+    /Unsupported Binance order type/,
+  );
+
   console.log("M39 Binance order management verification: OK");
 }
 

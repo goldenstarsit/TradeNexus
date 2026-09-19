@@ -192,6 +192,17 @@ async function run(): Promise<void> {
     /not supported/,
   );
 
+  await assert.rejects(
+    () =>
+      client.placeOrder({
+        symbol: "BTCUSDT",
+        side: "buy",
+        type: "stopMarket",
+        quantity: 0.001,
+      }),
+    /not supported/,
+  );
+
   console.log("M46 MEXC order management verification: OK");
 }
 

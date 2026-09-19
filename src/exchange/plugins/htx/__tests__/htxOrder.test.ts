@@ -204,6 +204,17 @@ async function run() {
     /HTX order type is not supported/,
   );
 
+  await assert.rejects(
+    () =>
+      client.placeOrder({
+        symbol: "BTCUSDT",
+        side: "buy",
+        type: "stopMarket",
+        quantity: 0.01,
+      }),
+    /HTX order type is not supported/,
+  );
+
   console.log("M53 HTX order management verification: OK");
 }
 
