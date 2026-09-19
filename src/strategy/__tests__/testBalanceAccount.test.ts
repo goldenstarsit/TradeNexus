@@ -41,6 +41,62 @@ test("test balance account supports deposits", () => {
   });
 });
 
+test("test balance account supports manual withdrawals", () => {
+  const account = createTestBalanceAccount(testContext(), {
+    USDT: 1000,
+  });
+
+  account.withdraw("USDT", 250);
+
+  assert.deepEqual(account.getBalance("USDT"), {
+    asset: "USDT",
+    available: 750,
+    reserved: 0,
+    total: 750,
+  });
+});
+
+test("manual withdrawal cannot consume reserved funds", () => {
+  const account = createTestBalanceAccount(testContext(), {
+    USDT: 1000,
+  });
+
+  account.reserve("USDT", 400);
+
+  account.withdraw("USDT", 600);
+
+  assert.deepEqual(account.getBalance("USDT"), {
+    asset: "USDT",
+    available: 0,
+    reserved: 400,
+    total: 400,
+  });
+
+  assert.throws(
+    () => account.withdraw("USDT", 1),
+    /Insufficient available USDT balance/,
+  );
+});
+
+test("manual withdrawal rejects insufficient available funds", () => {
+  const account = createTestBalanceAccount(testContext(), {
+    USDT: 100,
+  });
+
+  assert.throws(
+    () => account.withdraw("USDT", 101),
+    /Insufficient available USDT balance/,
+  );
+});
+
+test("manual withdrawal rejects invalid amounts", () => {
+  const account = createTestBalanceAccount(testContext());
+
+  assert.throws(() => account.withdraw("USDT", 0), /greater than zero/);
+  assert.throws(() => account.withdraw("USDT", -1), /greater than zero/);
+  assert.throws(() => account.withdraw("USDT", Number.NaN), /greater than zero/);
+});
+
 test("test balance account reserves and releases funds", () => {
   const account = createTestBalanceAccount(testContext(), {
     USDT: 1000,

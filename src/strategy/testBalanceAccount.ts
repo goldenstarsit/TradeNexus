@@ -3,6 +3,7 @@ import type { BalanceContext } from "./balanceContext";
 
 export interface TestBalanceAccount extends BalanceAccount {
   deposit(asset: string, amount: number): void;
+  withdraw(asset: string, amount: number): void;
   reserve(asset: string, amount: number): void;
   release(asset: string, amount: number): void;
   fill(asset: string, amount: number): void;
@@ -84,8 +85,19 @@ export function createTestBalanceAccount(
       state.available += amount;
     },
 
-    reserve(asset, amount) {
+    withdraw(asset, amount) {
       validateAmount(amount);
+      const normalizedAsset = normalizeAsset(asset);
+      const state = stateFor(normalizedAsset);
+
+      if (state.available < amount) {
+        throw new Error(`Insufficient available ${normalizedAsset} balance`);
+      }
+
+      state.available -= amount;
+    },
+
+    reserve(asset, amount) {
 
       const state = stateFor(asset);
 
