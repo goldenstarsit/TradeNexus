@@ -485,3 +485,73 @@ test("preserves filled and partially filled lifecycle statuses separately from e
     assert.equal(result.orderStatus, orderStatus);
   }
 });
+
+test("does not trigger hybrid taker fallback when maker order succeeds but fill retrieval fails", async () => {
+  const types: string[] = [];
+
+  const plugin = makePlugin(
+    async (request) => {
+      types.push(request.type);
+      return makeOrder({
+        id: "maker-fill-error",
+        status: "partiallyFilled",
+        executedQuantity: 0.4,
+        remainingQuantity: 0.6,
+      });
+    },
+    async () => {
+      throw new ExchangeError(
+        "binance",
+        "NETWORK_ERROR",
+        "Maker liquidity fill retrieval failed",
+      );
+    },
+  );
+
+  const service = createOrderExecutionService(plugin);
+
+  await assert.rejects(
+    service.execute({
+      symbol: "BTCUSDT",
+      side: "buy",
+      quantity: 1,
+      makerPrice: 100,
+      executionMode: "hybrid",
+    }),
+    /Maker liquidity fill retrieval failed/,
+  );
+
+  assert.deepEqual(types, ["makerOnly"]);
+});
+
+test("makerOnly propagates maker fill retrieval errors", async () => {
+  const plugin = makePlugin(
+    async () =>
+      makeOrder({
+        id: "maker-fill-error-only",
+        status: "partiallyFilled",
+        executedQuantity: 0.4,
+        remainingQuantity: 0.6,
+      }),
+    async () => {
+      throw new ExchangeError(
+        "binance",
+        "NETWORK_ERROR",
+        "Maker fill history unavailable",
+      );
+    },
+  );
+
+  const service = createOrderExecutionService(plugin);
+
+  await assert.rejects(
+    service.execute({
+      symbol: "BTCUSDT",
+      side: "buy",
+      quantity: 1,
+      makerPrice: 100,
+      executionMode: "makerOnly",
+    }),
+    /Maker fill history unavailable/,
+  );
+});

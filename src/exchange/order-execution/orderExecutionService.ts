@@ -221,8 +221,7 @@ export function createOrderExecutionService(
       });
     }
 
-    let makerOrder: Order;
-    let makerFills: readonly Fill[];
+    let makerOrder: Order | undefined;
 
     try {
       makerOrder = await plugin.placeOrder({
@@ -235,12 +234,6 @@ export function createOrderExecutionService(
           ? {}
           : { clientOrderId: request.clientOrderId }),
       });
-
-      attempts.push(
-        createAttempt("maker", "success", now(), makerOrder),
-      );
-
-      makerFills = await getFills(plugin, makerOrder, request.symbol);
     } catch (error) {
       const reason =
         error instanceof Error ? error.message : String(error);
@@ -262,12 +255,19 @@ export function createOrderExecutionService(
           createdAt,
         });
       }
-
-      makerOrder = undefined as never;
-      makerFills = [];
     }
 
     if (makerOrder !== undefined) {
+      attempts.push(
+        createAttempt("maker", "success", now(), makerOrder),
+      );
+
+      const makerFills = await getFills(
+        plugin,
+        makerOrder,
+        request.symbol,
+      );
+
       return resultFromOrder({
         order: makerOrder,
         exchange: plugin.metadata.id,
