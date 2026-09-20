@@ -1,4 +1,3 @@
-import "server-only";
 
 import { createDatabaseAdapter } from "./databaseProvider";
 import {
