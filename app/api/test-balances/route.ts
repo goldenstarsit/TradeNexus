@@ -4,7 +4,7 @@ import {
   depositTestBalance,
   getTestBalance,
   withdrawTestBalance,
-} from "@/src/strategy/testBalance/testBalanceService";
+} from "@/src/balance/testBalance/testBalanceService";
 
 interface BalanceRequest {
   accountId?: string;
