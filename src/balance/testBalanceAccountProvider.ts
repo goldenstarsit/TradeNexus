@@ -6,11 +6,25 @@ import type { BalanceContext } from "./balanceContext";
 import {
   createTestBalanceAccount,
   type TestBalanceAccount,
+  type TestBalancePersistence,
+  type TestBalanceState,
 } from "./testBalanceAccount";
 
 export type TestBalanceInitializer =
   | Record<string, number>
   | ((context: BalanceContext) => Record<string, number>);
+
+export interface TestBalanceLoadedState {
+  asset: string;
+  available: number;
+  reserved: number;
+}
+
+export interface TestBalanceAccountProviderOptions {
+  initializer?: TestBalanceInitializer;
+  load?: (context: BalanceContext) => TestBalanceLoadedState[];
+  persist?: TestBalancePersistence;
+}
 
 export interface TestBalanceAccountProvider
   extends BalanceAccountProvider {
@@ -18,9 +32,19 @@ export interface TestBalanceAccountProvider
 }
 
 export function createTestBalanceAccountProvider(
-  initializer: TestBalanceInitializer = {},
+  initializerOrOptions: TestBalanceInitializer | TestBalanceAccountProviderOptions = {},
 ): TestBalanceAccountProvider {
   const accounts = new Map<string, TestBalanceAccount>();
+
+  const options: TestBalanceAccountProviderOptions =
+    typeof initializerOrOptions === "function" ||
+    !("initializer" in initializerOrOptions) &&
+    !("load" in initializerOrOptions) &&
+    !("persist" in initializerOrOptions)
+      ? { initializer: initializerOrOptions as TestBalanceInitializer }
+      : initializerOrOptions as TestBalanceAccountProviderOptions;
+
+  const initializer = options.initializer ?? {};
 
   function initialBalances(
     context: BalanceContext,
@@ -41,9 +65,27 @@ export function createTestBalanceAccountProvider(
       return existing;
     }
 
+    const loaded = options.load?.(context) ?? [];
+
+    const loadedBalances: Record<string, number> = {};
+    const loadedStates: Record<string, TestBalanceState> = {};
+
+    for (const balance of loaded) {
+      loadedBalances[balance.asset] = balance.available;
+      loadedStates[balance.asset] = {
+        available: balance.available,
+        reserved: balance.reserved,
+      };
+    }
+
+    const configuredBalances = initialBalances(context);
+    const hasLoadedBalances = loaded.length > 0;
+
     const account = createTestBalanceAccount(
       context,
-      initialBalances(context),
+      hasLoadedBalances ? loadedBalances : configuredBalances,
+      options.persist,
+      loadedStates,
     );
 
     accounts.set(context.accountId, account);

@@ -66,6 +66,31 @@ test("test balance provider supports context-specific initialization", () => {
   assert.equal(second.getBalance("USDT").total, 250);
 });
 
+
+test("test balance provider can load persisted balances", () => {
+  const provider = createTestBalanceAccountProvider({
+    load: () => [
+      {
+        asset: "USDT",
+        available: 750,
+        reserved: 250,
+      },
+    ],
+  });
+
+  const context = createBalanceContextProvider().getContext(
+    "persisted-account",
+    "test",
+  );
+
+  assert.deepEqual(provider.getTestAccount(context).getBalance("USDT"), {
+    asset: "USDT",
+    available: 750,
+    reserved: 250,
+    total: 1000,
+  });
+});
+
 test("test balance provider rejects live context", () => {
   const provider = createTestBalanceAccountProvider();
   const context = createBalanceContextProvider().getContext(
