@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Tab = "create" | "list";
 
@@ -9,27 +9,239 @@ type DcaOrder = {
   dropPercent: string;
 };
 
-const exchangeSymbols: Record<string, string[]> = {
-  Binance: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"],
-  MEXC: ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "TRXUSDT"],
-  HTX: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "TRXUSDT", "DOGEUSDT"],
+type ExchangeSymbol = {
+  symbol: string;
+  baseAsset: string;
+  quoteAsset: string;
+  marketType: string;
 };
+
+const exchanges = [
+  { id: "binance", name: "Binance" },
+  { id: "mexc", name: "MEXC" },
+  { id: "htx", name: "HTX" },
+] as const;
+
+
 
 export default function DcaStrategyPage() {
   const [activeTab, setActiveTab] = useState<Tab>("create");
   const [showConfiguration, setShowConfiguration] = useState(false);
   const [balanceMode, setBalanceMode] = useState("Live Mode");
-  const [exchange, setExchange] = useState("Binance");
+  const [exchange, setExchange] = useState("binance");
+  const [symbols, setSymbols] = useState<ExchangeSymbol[]>([]);
+  const [symbolsLoading, setSymbolsLoading] = useState(false);
+  const [symbolsError, setSymbolsError] = useState<string | null>(null);
   const [executionMode, setExecutionMode] = useState("Maker Only");
-  const [symbol, setSymbol] = useState(exchangeSymbols.Binance[0]);
+  const [symbol, setSymbol] = useState("");
+  const [initialOrderAmount, setInitialOrderAmount] = useState("");
+  const [initialOrderMinimum, setInitialOrderMinimum] = useState<number | null>(null);
+  const [initialOrderCurrency, setInitialOrderCurrency] = useState("USDT");
+  const [initialOrderLoading, setInitialOrderLoading] = useState(false);
+  const [initialOrderError, setInitialOrderError] = useState<string | null>(null);
   const [dcaOrders, setDcaOrders] = useState<DcaOrder[]>([
     { id: 1, dropPercent: "" },
   ]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSymbols() {
+      setSymbolsLoading(true);
+      setSymbolsError(null);
+      setSymbols([]);
+      setSymbol("");
+
+      try {
+        const response = await fetch(
+          `/api/exchange-symbols?exchange=${encodeURIComponent(exchange)}`,
+          { cache: "no-store" },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load symbols");
+        }
+
+        if (cancelled) return;
+
+        const loadedSymbols = Array.isArray(data.symbols)
+          ? data.symbols
+          : [];
+
+        setSymbols(loadedSymbols);
+        setSymbol(loadedSymbols[0]?.symbol ?? "");
+
+        if (loadedSymbols.length === 0) {
+          setSymbolsError("No spot symbols are available for this exchange.");
+        }
+      } catch (error) {
+        if (cancelled) return;
+
+        setSymbolsError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load exchange symbols",
+        );
+      } finally {
+        if (!cancelled) {
+          setSymbolsLoading(false);
+        }
+      }
+    }
+
+    void loadSymbols();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [exchange]);
+
   const handleExchangeChange = (value: string) => {
     setExchange(value);
-    setSymbol(exchangeSymbols[value][0]);
+    setSymbol("");
+    setInitialOrderAmount("");
+    setInitialOrderMinimum(null);
+    setInitialOrderCurrency("USDT");
+    setInitialOrderError(null);
   };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    async function loadInitialOrderMinimum() {
+      if (!exchange || !symbol) {
+        setInitialOrderLoading(false);
+        setInitialOrderMinimum(null);
+        setInitialOrderAmount("");
+        setInitialOrderCurrency("USDT");
+        setInitialOrderError(null);
+        return;
+      }
+
+      const requestedExchange = exchange;
+      const requestedSymbol = symbol;
+
+      setInitialOrderLoading(true);
+      setInitialOrderMinimum(null);
+      setInitialOrderAmount("");
+      setInitialOrderCurrency("USDT");
+      setInitialOrderError(null);
+
+      let lastError: unknown = null;
+
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        if (!active || controller.signal.aborted) return;
+
+        try {
+          const response = await fetch(
+            `/api/exchange-symbol-rules?exchange=${encodeURIComponent(
+              requestedExchange,
+            )}&symbol=${encodeURIComponent(requestedSymbol)}`,
+            {
+              cache: "no-store",
+              signal: controller.signal,
+            },
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.error ||
+                `Failed to load minimum order amount for ${requestedSymbol}`,
+            );
+          }
+
+          const minimum = Number(data.minimumOrderAmount);
+
+          if (!Number.isFinite(minimum) || minimum <= 0) {
+            throw new Error(
+              `Exchange returned an invalid minimum order amount for ${requestedSymbol}`,
+            );
+          }
+
+          if (
+            !active ||
+            controller.signal.aborted ||
+            requestedExchange !== exchange ||
+            requestedSymbol !== symbol
+          ) {
+            return;
+          }
+
+          const currency =
+            typeof data.minimumOrderAmountCurrency === "string" &&
+            data.minimumOrderAmountCurrency.trim()
+              ? data.minimumOrderAmountCurrency.toUpperCase()
+              : typeof data.quoteAsset === "string" &&
+                  data.quoteAsset.trim()
+                ? data.quoteAsset.toUpperCase()
+                : "USDT";
+
+          setInitialOrderMinimum(minimum);
+          setInitialOrderCurrency(currency);
+          setInitialOrderAmount(String(minimum));
+          setInitialOrderError(null);
+          setInitialOrderLoading(false);
+
+          return;
+        } catch (error) {
+          if (
+            controller.signal.aborted ||
+            !active
+          ) {
+            return;
+          }
+
+          lastError = error;
+
+          if (attempt < 2) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, 350),
+            );
+          }
+        }
+      }
+
+      if (!active || controller.signal.aborted) return;
+
+      setInitialOrderMinimum(null);
+      setInitialOrderAmount("");
+      setInitialOrderLoading(false);
+      setInitialOrderError(
+        lastError instanceof Error
+          ? lastError.message
+          : "Failed to load minimum order amount",
+      );
+    }
+
+    void loadInitialOrderMinimum();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [exchange, symbol]);
+
+  const initialOrderValue = Number(initialOrderAmount);
+  const formatUsdtValue = (value: number): string =>
+    Number.isFinite(value)
+      ? value.toFixed(8).replace(/\.?0+$/, "")
+      : "0";
+
+  const formattedInitialOrderMinimum =
+    initialOrderMinimum !== null
+      ? formatUsdtValue(initialOrderMinimum)
+      : null;
+
+  const initialOrderBelowMinimum =
+    initialOrderMinimum !== null &&
+    initialOrderAmount !== "" &&
+    (!Number.isFinite(initialOrderValue) ||
+      initialOrderValue < initialOrderMinimum);
 
   const addDcaOrder = () => {
     setDcaOrders((orders) => [
@@ -148,9 +360,11 @@ export default function DcaStrategyPage() {
                         handleExchangeChange(event.target.value)
                       }
                     >
-                      <option>Binance</option>
-                      <option>MEXC</option>
-                      <option>HTX</option>
+                      {exchanges.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -177,11 +391,25 @@ export default function DcaStrategyPage() {
                       id="symbol"
                       value={symbol}
                       onChange={(event) => setSymbol(event.target.value)}
+                      disabled={symbolsLoading || symbols.length === 0}
                     >
-                      {exchangeSymbols[exchange].map((item) => (
-                        <option key={item}>{item}</option>
-                      ))}
+                      {symbolsLoading ? (
+                        <option value="">Loading symbols...</option>
+                      ) : symbols.length === 0 ? (
+                        <option value="">No symbols available</option>
+                      ) : (
+                        symbols.map((item) => (
+                          <option key={item.symbol} value={item.symbol}>
+                            {item.symbol}
+                          </option>
+                        ))
+                      )}
                     </select>
+                    {symbolsError && (
+                      <p className="strategy-field-description">
+                        {symbolsError}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -189,23 +417,47 @@ export default function DcaStrategyPage() {
                   <div className="strategy-order-section">
                     <div className="strategy-order-title">
                       <h3>Initial Order</h3>
-                      <span>Minimum allowed</span>
+                      <span>
+                        {initialOrderLoading
+                          ? "Loading minimum..."
+                          : initialOrderMinimum !== null
+                            ? `Minimum ${formattedInitialOrderMinimum} ${initialOrderCurrency}`
+                            : "Minimum unavailable"}
+                      </span>
                     </div>
 
                     <div className="strategy-config-field">
-                      <label htmlFor="initial-order">Order Amount</label>
+                      <label htmlFor="initial-order">
+                        Order Amount ({initialOrderCurrency})
+                      </label>
                       <input
                         id="initial-order"
                         type="number"
-                        min="0"
-                        placeholder={
-                          exchange === "Binance"
-                            ? "Minimum allowed: 10 USDT"
-                            : exchange === "MEXC"
-                              ? "Minimum allowed: 1 USDT"
-                              : "Minimum allowed: 5 USDT"
+                        min={initialOrderMinimum ?? 0}
+                        step="any"
+                        value={initialOrderAmount}
+                        disabled={initialOrderLoading || initialOrderMinimum === null}
+                        onChange={(event) => {
+                          setInitialOrderAmount(event.target.value);
+                          setInitialOrderError(null);
+                        }}
+                        aria-invalid={
+                          initialOrderBelowMinimum || initialOrderError
+                            ? true
+                            : undefined
                         }
                       />
+                      {initialOrderBelowMinimum && initialOrderMinimum !== null && (
+                        <p className="strategy-field-description">
+                          Minimum allowed is {formattedInitialOrderMinimum}{" "}
+                          {initialOrderCurrency}.
+                        </p>
+                      )}
+                      {initialOrderError && (
+                        <p className="strategy-field-description">
+                          {initialOrderError}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -219,12 +471,25 @@ export default function DcaStrategyPage() {
                       {dcaOrders.map((order) => (
                         <div className="strategy-dca-row" key={order.id}>
                           <div className="strategy-config-field">
-                            <label htmlFor={`dca-${order.id}`}>
-                              DCA Order {order.id}
+                            <label htmlFor={`dca-amount-${order.id}`}>
+                              Amount
+                            </label>
+                            <input
+                              id={`dca-amount-${order.id}`}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="Amount in USDT"
+                            />
+                          </div>
+
+                          <div className="strategy-config-field">
+                            <label htmlFor={`dca-drop-${order.id}`}>
+                              Drop %
                             </label>
                             <div className="strategy-input-suffix">
                               <input
-                                id={`dca-${order.id}`}
+                                id={`dca-drop-${order.id}`}
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -235,7 +500,7 @@ export default function DcaStrategyPage() {
                                     event.target.value,
                                   )
                                 }
-                                placeholder="Price drop %"
+                                placeholder="From initial order"
                               />
                               <span>%</span>
                             </div>
@@ -258,7 +523,7 @@ export default function DcaStrategyPage() {
 
                     <p className="strategy-field-description">
                       Each DCA order is triggered when the price falls by the
-                      configured percentage.
+                      configured percentage from the Initial Order price.
                     </p>
                   </div>
 
@@ -307,6 +572,34 @@ export default function DcaStrategyPage() {
                   <button
                     className="strategy-primary-action"
                     type="button"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(
+                          "/api/strategies/dca-submit-debug",
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                              balanceMode,
+                              exchange,
+                              executionMode,
+                              symbol,
+                            }),
+                          },
+                        );
+
+                        if (!response.ok) {
+                          throw new Error("DCA configuration submit failed");
+                        }
+                      } catch (error) {
+                        console.error(
+                          "[DCA CONFIGURATION SUBMIT]",
+                          error,
+                        );
+                      }
+                    }}
                   >
                     Save Strategy
                     <span>→</span>

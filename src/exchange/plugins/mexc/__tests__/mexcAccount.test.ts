@@ -16,16 +16,30 @@ const client = createMexcAccountClient({
     async request<T>(request: HttpRequest): Promise<HttpResponse<T>> {
       requests.push(request);
 
-      return {
-        status: 200,
-        headers: new Headers(),
-        data: {
-          balances: [
-            { asset: "BTC", free: "0.50000000", locked: "0.10000000" },
-            { asset: "USDT", free: "1000.50", locked: "25.25" },
-          ],
-        } as T,
-      };
+      if (request.path === "/api/v3/time") {
+        return {
+          status: 200,
+          headers: new Headers(),
+          data: {
+            serverTime: 1700000000000,
+          } as T,
+        };
+      }
+
+      if (request.path === "/api/v3/account") {
+        return {
+          status: 200,
+          headers: new Headers(),
+          data: {
+            balances: [
+              { asset: "BTC", free: "0.50000000", locked: "0.10000000" },
+              { asset: "USDT", free: "1000.50", locked: "25.25" },
+            ],
+          } as T,
+        };
+      }
+
+      throw new Error(`Unexpected MEXC test request: ${request.path}`);
     },
   },
 });
@@ -36,6 +50,11 @@ async function run(): Promise<void> {
   assert.equal(snapshot.exchange, "mexc");
   assert.equal(snapshot.timestamp, 1700000000000);
   assert.equal(snapshot.balances.length, 2);
+
+  const accountRequest = requests.find(
+    (request) => request.path === "/api/v3/account",
+  );
+  assert.ok(accountRequest);
 
   assert.deepEqual(snapshot.balances[0], {
     asset: "BTC",
@@ -49,13 +68,13 @@ async function run(): Promise<void> {
     locked: 25.25,
   });
 
-  assert.equal(requests[0].path, "/api/v3/account");
-  assert.equal(requests[0].method, "GET");
-  assert.equal(requests[0].headers?.["X-MEXC-APIKEY"], "test-api-key");
-  assert.equal(requests[0].query?.recvWindow, 5000);
-  assert.equal(requests[0].query?.timestamp, 1700000000000);
-  assert.equal(typeof requests[0].query?.signature, "string");
-  assert.equal((requests[0].query?.signature as string).length, 64);
+  assert.equal(accountRequest.path, "/api/v3/account");
+  assert.equal(accountRequest.method, "GET");
+  assert.equal(accountRequest.headers?.["X-MEXC-APIKEY"], "test-api-key");
+  assert.equal(accountRequest.query?.recvWindow, 5000);
+  assert.equal(accountRequest.query?.timestamp, 1700000000000);
+  assert.equal(typeof accountRequest.query?.signature, "string");
+  assert.equal((accountRequest.query?.signature as string).length, 64);
 
   const usdt = await client.getBalances("usdt");
 
@@ -72,7 +91,7 @@ async function run(): Promise<void> {
           httpClient: client as never,
         }),
       }),
-    /API key cannot be empty/,
+    /MEXC API key must not be empty/,
   );
 
   assert.throws(
@@ -84,7 +103,7 @@ async function run(): Promise<void> {
           httpClient: client as never,
         }),
       }),
-    /API secret cannot be empty/,
+    /MEXC API secret must not be empty/,
   );
 
   console.log("M45 MEXC account/balance verification: OK");
