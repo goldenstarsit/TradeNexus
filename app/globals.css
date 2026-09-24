@@ -279,6 +279,48 @@ a {
   margin-left: 2px;
 }
 
+.balance-mode-toggle {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 9px;
+  background: rgba(255,255,255,.07);
+  color: #dce4f2;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.balance-mode-toggle:hover {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.24);
+  transform: translateY(-1px);
+}
+
+.balance-mode-toggle:focus-visible {
+  outline: 2px solid rgba(255,255,255,.7);
+  outline-offset: 2px;
+}
+
+.balance-mode-icon {
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .4px;
+}
+
+.balance-mode-toggle.live .balance-mode-icon {
+  color: #78e0bb;
+}
+
+.balance-mode-toggle.test .balance-mode-icon {
+  color: #8fc5ff;
+}
+
 .balance-header {
   min-height: 116px;
   padding: 20px 34px;
@@ -286,6 +328,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 30px;
+  position: relative;
   background: linear-gradient(135deg, #172033 0%, #202c45 100%);
   color: #fff;
   border-bottom: 1px solid rgba(255,255,255,.06);
@@ -293,6 +336,17 @@ a {
 
 .balance-primary {
   min-width: 250px;
+}
+
+.balance-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.balance-value-content {
+  min-width: 0;
 }
 
 .balance-label {
@@ -1037,11 +1091,28 @@ a {
   .balance-header {
     min-height: auto;
     padding: 17px 16px;
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .balance-mode-toggle {
+    margin-left: 8px;
   }
 
   .balance-primary {
     min-width: 0;
+    grid-column: 1 / -1;
+  }
+
+  .balance-value-row {
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .balance-mode-toggle {
+    margin-left: auto;
   }
 
   .balance-value {
@@ -1049,6 +1120,7 @@ a {
   }
 
   .balance-exchanges {
+    grid-column: 1 / -1;
     margin-top: 15px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1776,34 +1848,69 @@ a {
 
 .strategy-dca-row {
   display: flex;
+  flex-direction: row;
   align-items: flex-end;
-  gap: 10px;
+  gap: 2px;
+  width: 100%;
   max-width: 570px;
 }
 
-.strategy-dca-row .strategy-config-field {
-  flex: 1;
+.strategy-dca-combined-field {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
 }
 
-.strategy-add-dca {
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+.strategy-dca-combined-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.strategy-dca-combined-item label {
+  display: block;
+  margin: 0 0 7px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.strategy-dca-combined-item input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 9px;
+  outline: none;
   background: #fff;
   color: #111827;
-  font-size: 24px;
-  line-height: 1;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+  font-size: 14px;
+  box-sizing: border-box;
 }
 
-.strategy-add-dca:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-  transform: translateY(-1px);
+.strategy-dca-drop {
+  flex: 0 0 31.25%;
+}
+
+.strategy-dca-row .strategy-add-dca {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 44px;
+  margin: 0 0 0 4px;
+}
+
+@media (max-width: 700px) {
+  .strategy-dca-row {
+    max-width: none;
+  }
+
+  .strategy-dca-drop {
+    flex: 0 0 31.25%;
+  }
 }
 
 .strategy-field-description {
@@ -1969,4 +2076,251 @@ a {
   color: #b91c1c;
   background: #fee2e2;
   border-color: #fca5a5;
+}
+
+/* Test balance deposit controls */
+.balance-test-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.balance-deposit-toggle {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 9px;
+  background: rgba(255,255,255,.07);
+  color: #78e0bb;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.balance-deposit-toggle:hover {
+  background: rgba(120,224,187,.12);
+  border-color: rgba(120,224,187,.35);
+  transform: translateY(-1px);
+}
+
+.balance-deposit-toggle span {
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.balance-deposit-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 18px;
+  z-index: 20;
+  width: min(300px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  background: #202c45;
+  box-shadow: 0 14px 35px rgba(0,0,0,.28);
+}
+
+.balance-deposit-title {
+  color: #f0f4fb;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.balance-deposit-label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  color: #9eabc0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+.balance-deposit-input {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  background: rgba(255,255,255,.055);
+}
+
+.balance-deposit-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f0f4fb;
+  font-size: 12px;
+}
+
+.balance-deposit-input span {
+  padding-right: 10px;
+  color: #8f9aae;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.balance-deposit-error {
+  margin-top: 7px;
+  color: #ff9b9b;
+  font-size: 9px;
+}
+
+.balance-deposit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.balance-deposit-cancel,
+.balance-deposit-submit {
+  min-height: 31px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.balance-deposit-cancel {
+  border: 1px solid rgba(255,255,255,.1);
+  background: transparent;
+  color: #aab5c6;
+}
+
+.balance-deposit-submit {
+  border: 1px solid rgba(120,224,187,.3);
+  background: rgba(120,224,187,.14);
+  color: #78e0bb;
+}
+
+.balance-deposit-submit:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+@media (max-width: 900px) {
+  .balance-header {
+    position: relative;
+  }
+
+  .balance-test-actions {
+    position: absolute;
+    top: 17px;
+    right: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .balance-test-actions {
+    top: 15px;
+    right: 12px;
+  }
+
+  .balance-deposit-popover {
+    right: 12px;
+  }
+}
+
+.balance-test-actions {
+  transform: translateY(10px);
+}
+
+.balance-test-actions {
+  transform: translateY(20px);
+}
+
+.balance-withdraw-toggle {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 9px;
+  background: rgba(255,255,255,.07);
+  color: #ffb0b0;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.balance-withdraw-toggle:hover {
+  background: rgba(255,176,176,.12);
+  border-color: rgba(255,176,176,.35);
+}
+
+.balance-withdraw-toggle span {
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.balance-header > .balance-mode-toggle.live {
+  transform: none;
+  align-self: center;
+  margin-top: 0;
+}
+
+.balance-header > .balance-mode-toggle.live:hover {
+  transform: translateY(-1px);
+}
+
+.balance-header {
+  position: relative;
+}
+
+.balance-header > .balance-mode-toggle.live {
+  position: absolute;
+  right: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+}
+
+.balance-header > .balance-mode-toggle.live:hover {
+  transform: translateY(calc(-50% - 1px));
+}
+
+@media (max-width: 900px) {
+  .balance-header > .balance-mode-toggle.live {
+    right: 16px;
+    top: 42px;
+  }
+}
+
+@media (max-width: 640px) {
+  .balance-header > .balance-mode-toggle.live {
+    right: 12px;
+    top: 38px;
+  }
+}
+
+.balance-header > .balance-mode-toggle.live {
+  top: 48px;
+}
+
+@media (max-width: 900px) {
+  .balance-header > .balance-mode-toggle.live {
+    top: 52px;
+  }
+}
+
+@media (max-width: 640px) {
+  .balance-header > .balance-mode-toggle.live {
+    top: 48px;
+  }
 }

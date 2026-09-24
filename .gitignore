@@ -47,3 +47,8 @@ next-env.d.ts
 .env.production
 
 /data/
+
+# TradeNexus runtime files
+.tradenexus-dev.log
+.tradenexus-dev.pid
+*.bak

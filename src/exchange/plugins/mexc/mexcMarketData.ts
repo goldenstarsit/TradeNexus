@@ -60,7 +60,7 @@ export function createMexcMarketDataClient(
     });
 
     const symbols = response.data.symbols
-      .filter((item) => item.status === "ENABLED")
+      .filter((item) => item.status === "1")
       .map((item) =>
         createTradingSymbol({
           exchangeSymbol: item.symbol,

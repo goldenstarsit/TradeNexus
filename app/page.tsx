@@ -1,3 +1,4 @@
+import BalanceModeToggle from "./components/balance-mode-toggle";
 import Link from "next/link";
 const stats = [
   { label: "Portfolio Value", value: "$24,680.42", change: "+4.82%", positive: true, icon: "◈" },
@@ -90,44 +91,7 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="balance-header" aria-label="Total balance">
-          <div className="balance-primary">
-            <div className="balance-label">
-              <span className="portfolio-pulse" />
-              TOTAL BALANCE
-            </div>
-            <div className="balance-value">$24,680.42</div>
-            <div className="balance-change">
-              <span>↗ +$428.16</span>
-              <strong>+1.77%</strong>
-              <small>Today</small>
-            </div>
-          </div>
-
-          <div className="balance-exchanges">
-            <div className="balance-exchange">
-              <div className="exchange-logo binance">B</div>
-              <div>
-                <span>Binance</span>
-                <strong>$12,840.18</strong>
-              </div>
-            </div>
-            <div className="balance-exchange">
-              <div className="exchange-logo mexc">M</div>
-              <div>
-                <span>MEXC</span>
-                <strong>$7,420.64</strong>
-              </div>
-            </div>
-            <div className="balance-exchange">
-              <div className="exchange-logo htx">H</div>
-              <div>
-                <span>HTX</span>
-                <strong>$4,419.60</strong>
-              </div>
-            </div>
-          </div>
-        </section>
+        <BalanceModeToggle />
 
         <section className="strategies-section" aria-label="Trading strategies">
           <div className="strategies-heading">

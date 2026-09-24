@@ -1,6 +1,12 @@
 import { createHmac } from "node:crypto";
+
 import type { ExchangeHttpClient } from "../../http/exchangeHttpClient";
-import { createBalance, createBalanceSnapshot, type Balance, type BalanceSnapshot } from "../../balance/balance";
+import {
+  createBalance,
+  createBalanceSnapshot,
+  type Balance,
+  type BalanceSnapshot,
+} from "../../balance/balance";
 
 export interface BinanceAccountClient {
   getBalances(asset?: string): Promise<BalanceSnapshot>;
@@ -12,6 +18,7 @@ export interface BinanceAccountClientOptions {
   readonly apiSecret: string;
   readonly recvWindow?: number;
   readonly now?: () => number;
+  readonly getServerTime?: () => Promise<number>;
 }
 
 interface BinanceAccountResponse {
@@ -22,11 +29,17 @@ interface BinanceAccountResponse {
   }>;
 }
 
+interface BinanceTimeResponse {
+  serverTime: number;
+}
+
 function toNumber(value: string): number {
   const number = Number(value);
+
   if (!Number.isFinite(number)) {
     throw new Error(`Invalid Binance numeric value: ${value}`);
   }
+
   return number;
 }
 
@@ -42,7 +55,17 @@ function validateCredentials(apiKey: string, apiSecret: string): void {
 
 function validateRecvWindow(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error("Binance recvWindow must be a finite number greater than zero");
+    throw new Error(
+      "Binance recvWindow must be a finite number greater than zero",
+    );
+  }
+
+  return value;
+}
+
+function validateServerTime(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error("Binance server time must be a finite number greater than zero");
   }
 
   return value;
@@ -62,9 +85,20 @@ export function createBinanceAccountClient(
   const recvWindow = validateRecvWindow(options.recvWindow ?? 5000);
   const now = options.now ?? Date.now;
 
+  const getServerTime =
+    options.getServerTime ??
+    (async () => {
+      const response = await options.httpClient.request<BinanceTimeResponse>({
+        method: "GET",
+        path: "/api/v3/time",
+      });
+
+      return validateServerTime(response.data.serverTime);
+    });
+
   return {
     async getBalances(asset) {
-      const timestamp = now();
+      const timestamp = validateServerTime(await getServerTime());
 
       const query: Record<string, string | number> = {
         recvWindow,

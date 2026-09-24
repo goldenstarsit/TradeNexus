@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { createBinanceAccountClient } from "../binanceAccount";
 import type {
   HttpRequest,
@@ -12,9 +13,20 @@ const client = createBinanceAccountClient({
   apiSecret: "test-api-secret",
   recvWindow: 5000,
   now: () => 1700000000000,
+  getServerTime: async () => 1700000005000,
   httpClient: {
     async request<T>(request: HttpRequest): Promise<HttpResponse<T>> {
       requests.push(request);
+
+      if (request.path === "/api/v3/time") {
+        return {
+          status: 200,
+          headers: new Headers(),
+          data: {
+            serverTime: 1700000005000,
+          } as T,
+        };
+      }
 
       return {
         status: 200,
@@ -34,13 +46,15 @@ async function run() {
   const snapshot = await client.getBalances();
 
   assert.equal(snapshot.exchange, "binance");
-  assert.equal(snapshot.timestamp, 1700000000000);
+  assert.equal(snapshot.timestamp, 1700000005000);
   assert.equal(snapshot.balances.length, 2);
+
   assert.deepEqual(snapshot.balances[0], {
     asset: "BTC",
     free: 0.5,
     locked: 0.1,
   });
+
   assert.deepEqual(snapshot.balances[1], {
     asset: "USDT",
     free: 1000.5,
@@ -51,7 +65,7 @@ async function run() {
   assert.equal(requests[0].method, "GET");
   assert.equal(requests[0].headers?.["X-MBX-APIKEY"], "test-api-key");
   assert.equal(requests[0].query?.recvWindow, 5000);
-  assert.equal(requests[0].query?.timestamp, 1700000000000);
+  assert.equal(requests[0].query?.timestamp, 1700000005000);
   assert.equal(typeof requests[0].query?.signature, "string");
   assert.equal((requests[0].query?.signature as string).length, 64);
 
@@ -63,11 +77,9 @@ async function run() {
   assert.throws(
     () =>
       createBinanceAccountClient({
-        ...({
-          apiKey: "",
-          apiSecret: "secret",
-          httpClient: client as never,
-        }),
+        apiKey: "",
+        apiSecret: "secret",
+        httpClient: client as never,
       }),
     /API key cannot be empty/,
   );
@@ -75,11 +87,9 @@ async function run() {
   assert.throws(
     () =>
       createBinanceAccountClient({
-        ...({
-          apiKey: "key",
-          apiSecret: "",
-          httpClient: client as never,
-        }),
+        apiKey: "key",
+        apiSecret: "",
+        httpClient: client as never,
       }),
     /API secret cannot be empty/,
   );

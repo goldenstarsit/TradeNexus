@@ -326,6 +326,12 @@ export function createExchangeHttpClient(
         const data = await readResponseBody(response);
 
         if (!response.ok) {
+          console.error("[Exchange HTTP]", {
+            exchange,
+            status: response.status,
+            response: data,
+          });
+
           throw new ExchangeError(
             exchange,
             getHttpErrorCode(response.status),

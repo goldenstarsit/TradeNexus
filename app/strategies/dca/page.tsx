@@ -6,6 +6,7 @@ type Tab = "create" | "list";
 
 type DcaOrder = {
   id: number;
+  amount: string;
   dropPercent: string;
 };
 
@@ -39,8 +40,10 @@ export default function DcaStrategyPage() {
   const [initialOrderCurrency, setInitialOrderCurrency] = useState("USDT");
   const [initialOrderLoading, setInitialOrderLoading] = useState(false);
   const [initialOrderError, setInitialOrderError] = useState<string | null>(null);
+  const [takeProfit, setTakeProfit] = useState("1");
+  const [stopLoss, setStopLoss] = useState("50");
   const [dcaOrders, setDcaOrders] = useState<DcaOrder[]>([
-    { id: 1, dropPercent: "" },
+    { id: 1, amount: "", dropPercent: "1" },
   ]);
 
   useEffect(() => {
@@ -184,6 +187,13 @@ export default function DcaStrategyPage() {
           setInitialOrderMinimum(minimum);
           setInitialOrderCurrency(currency);
           setInitialOrderAmount(String(minimum));
+          setDcaOrders((orders) =>
+            orders.map((order) => ({
+              ...order,
+              amount: formatUsdtValue(minimum * order.id),
+              dropPercent: order.dropPercent || String(order.id),
+            })),
+          );
           setInitialOrderError(null);
           setInitialOrderLoading(false);
 
@@ -210,6 +220,13 @@ export default function DcaStrategyPage() {
 
       setInitialOrderMinimum(null);
       setInitialOrderAmount("");
+      setDcaOrders((orders) =>
+        orders.map((order) => ({
+          ...order,
+          amount: "",
+          dropPercent: order.dropPercent || String(order.id),
+        })),
+      );
       setInitialOrderLoading(false);
       setInitialOrderError(
         lastError instanceof Error
@@ -246,14 +263,40 @@ export default function DcaStrategyPage() {
   const addDcaOrder = () => {
     setDcaOrders((orders) => [
       ...orders,
-      { id: orders.length + 1, dropPercent: "" },
+      {
+        id: orders.length + 1,
+        amount:
+          initialOrderMinimum !== null
+            ? formatUsdtValue(initialOrderMinimum * (orders.length + 1))
+            : "",
+        dropPercent: String(orders.length + 1),
+      },
     ]);
   };
 
-  const updateDcaOrder = (id: number, value: string) => {
+  const removeDcaOrder = (id: number) => {
+    setDcaOrders((orders) =>
+      orders
+        .filter((order) => order.id !== id)
+        .map((order, index) => ({
+          ...order,
+          id: index + 1,
+          amount:
+            initialOrderMinimum !== null
+              ? formatUsdtValue(initialOrderMinimum * (index + 1))
+              : order.amount,
+          dropPercent: order.dropPercent || String(index + 1),
+        })),
+    );
+  };
+
+  const updateDcaOrder = (
+    id: number,
+    changes: { amount?: string; dropPercent?: string },
+  ) => {
     setDcaOrders((orders) =>
       orders.map((order) =>
-        order.id === id ? { ...order, dropPercent: value } : order,
+        order.id === id ? { ...order, ...changes } : order,
       ),
     );
   };
@@ -470,24 +513,32 @@ export default function DcaStrategyPage() {
                     <div className="strategy-dca-list">
                       {dcaOrders.map((order) => (
                         <div className="strategy-dca-row" key={order.id}>
-                          <div className="strategy-config-field">
-                            <label htmlFor={`dca-amount-${order.id}`}>
-                              Amount
-                            </label>
-                            <input
-                              id={`dca-amount-${order.id}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="Amount in USDT"
-                            />
-                          </div>
+                          <div className="strategy-dca-combined-field">
+                            <div className="strategy-dca-combined-item">
+                              <label htmlFor={`dca-amount-${order.id}`}>
+                                Minimum Order Quantity
+                              </label>
+                              <input
+                                id={`dca-amount-${order.id}`}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={order.amount}
+                                onChange={(event) =>
+                                  updateDcaOrder(order.id, {
+                                    amount: event.target.value,
+                                  })
+                                }
+                                placeholder="Amount in USDT"
+                              />
+                            </div>
 
-                          <div className="strategy-config-field">
-                            <label htmlFor={`dca-drop-${order.id}`}>
-                              Drop %
-                            </label>
-                            <div className="strategy-input-suffix">
+                            <div className="strategy-dca-combined-divider" />
+
+                            <div className="strategy-dca-combined-item strategy-dca-drop">
+                              <label htmlFor={`dca-drop-${order.id}`}>
+                                Drop %
+                              </label>
                               <input
                                 id={`dca-drop-${order.id}`}
                                 type="number"
@@ -495,28 +546,38 @@ export default function DcaStrategyPage() {
                                 step="0.01"
                                 value={order.dropPercent}
                                 onChange={(event) =>
-                                  updateDcaOrder(
-                                    order.id,
-                                    event.target.value,
-                                  )
+                                  updateDcaOrder(order.id, {
+                                    dropPercent: event.target.value,
+                                  })
                                 }
-                                placeholder="From initial order"
+                                placeholder="Drop"
                               />
-                              <span>%</span>
                             </div>
                           </div>
 
-                          {order.id === dcaOrders.length && (
-                            <button
-                              className="strategy-add-dca"
-                              type="button"
-                              onClick={addDcaOrder}
-                              aria-label="Add DCA order"
-                              title="Add DCA order"
-                            >
-                              +
-                            </button>
-                          )}
+                          <button
+                            className="strategy-add-dca"
+                            type="button"
+                            onClick={() =>
+                              dcaOrders[dcaOrders.length - 1]?.id === order.id
+                                ? addDcaOrder()
+                                : removeDcaOrder(order.id)
+                            }
+                            aria-label={
+                              dcaOrders[dcaOrders.length - 1]?.id === order.id
+                                ? "Add DCA order"
+                                : "Remove DCA order"
+                            }
+                            title={
+                              dcaOrders[dcaOrders.length - 1]?.id === order.id
+                                ? "Add DCA order"
+                                : "Remove DCA order"
+                            }
+                          >
+                            {dcaOrders[dcaOrders.length - 1]?.id === order.id
+                              ? "+"
+                              : "−"}
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -536,7 +597,8 @@ export default function DcaStrategyPage() {
                           type="number"
                           min="0"
                           step="0.01"
-                          placeholder="2"
+                          value={takeProfit}
+                        onChange={(event) => setTakeProfit(event.target.value)}
                         />
                         <span>%</span>
                       </div>
@@ -552,7 +614,8 @@ export default function DcaStrategyPage() {
                           type="number"
                           min="0"
                           step="0.01"
-                          placeholder="50"
+                          value={stopLoss}
+                          onChange={(event) => setStopLoss(event.target.value)}
                         />
                         <span>%</span>
                       </div>
@@ -586,6 +649,15 @@ export default function DcaStrategyPage() {
                               exchange,
                               executionMode,
                               symbol,
+                              initialOrderAmount,
+                              initialOrderCurrency,
+                              takeProfit,
+                              stopLoss,
+                              dcaOrders: dcaOrders.map((order, index) => [
+                                `DCA ${index + 1}`,
+                                order.amount,
+                                order.dropPercent,
+                              ]),
                             }),
                           },
                         );
@@ -593,6 +665,28 @@ export default function DcaStrategyPage() {
                         if (!response.ok) {
                           throw new Error("DCA configuration submit failed");
                         }
+
+                        console.log("===== DCA CONFIGURATION SUBMIT =====");
+                        console.log("Balance Mode:", balanceMode);
+                        console.log("Exchange:", exchange);
+                        console.log("Execution Mode:", executionMode);
+                        console.log("Symbol:", symbol);
+                        console.log(
+                          "Initial Order Amount:",
+                          initialOrderAmount,
+                          initialOrderCurrency,
+                        );
+                        console.log("Take Profit:", takeProfit, "%");
+                        console.log("Stop Loss:", stopLoss, "%");
+                        console.log(
+                          "DCA:",
+                          dcaOrders.map((order, index) => [
+                            `DCA ${index + 1}`,
+                            order.amount,
+                            order.dropPercent,
+                          ]),
+                        );
+                        console.log("====================================");
                       } catch (error) {
                         console.error(
                           "[DCA CONFIGURATION SUBMIT]",
