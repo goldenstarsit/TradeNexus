@@ -12,8 +12,10 @@ export interface ExchangeSymbolRules {
   readonly minimumOrderAmount: number;
   readonly minimumOrderAmountCurrency: string;
   readonly quantityMinimum: number;
+  readonly minQty: string;
   readonly quantityStep: number;
   readonly priceStep: number | null;
+  readonly referencePrice: number;
 }
 
 interface MEXCSymbolInfo {
@@ -420,12 +422,23 @@ export interface ExchangeSymbolRulesProvider {
   getSymbolRules(
     exchangeId: ExchangeId,
     symbol: string,
+    referencePriceOverride?: number,
+  ): Promise<ExchangeSymbolRules>;
+
+  calculateMinimumOrderAtDrop(
+    exchangeId: ExchangeId,
+    symbol: string,
+    dropPercent: number,
   ): Promise<ExchangeSymbolRules>;
 }
 
 export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider {
   return {
-    async getSymbolRules(exchangeId, symbol) {
+    async getSymbolRules(
+      exchangeId,
+      symbol,
+      referencePriceOverride,
+    ) {
       const normalizedSymbol = symbol.trim().toUpperCase();
 
       if (!normalizedSymbol) {
@@ -492,11 +505,13 @@ export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider
             "MEXC minimum market quote amount",
           );
 
-          const price = await getTickerPrice(
-            httpClient,
-            "/api/v3/ticker/24hr",
-            normalizedSymbol,
-          );
+          const price =
+            referencePriceOverride ??
+            (await getTickerPrice(
+              httpClient,
+              "/api/v3/ticker/24hr",
+              normalizedSymbol,
+            ));
 
           const rules: EffectiveMinimumOrderRules = {
             exchange: exchangeId,
@@ -562,8 +577,10 @@ export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider
             minimumOrderAmount: minimum.quoteAmount,
             minimumOrderAmountCurrency: minimum.quoteAsset,
             quantityMinimum: minimum.quantity,
+            minQty: String(minimum.quantity),
             quantityStep: minimum.quantityStep,
             priceStep: minimum.priceStep,
+            referencePrice: minimum.referencePrice,
           };
         }
 
@@ -670,11 +687,12 @@ export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider
           } = getBinanceMinimumNotional(item.filters);
 
           const referencePrice =
-            await getBinanceMarketReferencePrice(
+            referencePriceOverride ??
+            (await getBinanceMarketReferencePrice(
               httpClient,
               normalizedSymbol,
               avgPriceMins,
-            );
+            ));
 
           const priceFilter =
             getBinanceFilter(
@@ -789,8 +807,10 @@ export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider
             minimumOrderAmountCurrency:
               minimum.quoteAsset,
             quantityMinimum: minimum.quantity,
+            minQty: String(minimum.quantity),
             quantityStep: minimum.quantityStep,
             priceStep: minimum.priceStep,
+            referencePrice: minimum.referencePrice,
           };
         }
 
@@ -820,10 +840,12 @@ export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider
             );
           }
 
-          const referencePrice = await getHtxMarketReferencePrice(
-            httpClient,
-            normalizedSymbol,
-          );
+          const referencePrice =
+            referencePriceOverride ??
+            (await getHtxMarketReferencePrice(
+              httpClient,
+              normalizedSymbol,
+            ));
 
           const minimumQuantity = positiveNumber(
             item["min-order-amt"],
@@ -908,11 +930,64 @@ export function createExchangeSymbolRulesProvider(): ExchangeSymbolRulesProvider
             minimumOrderAmount: minimum.quoteAmount,
             minimumOrderAmountCurrency: minimum.quoteAsset,
             quantityMinimum: minimum.quantity,
+            minQty: String(minimum.quantity),
             quantityStep: minimum.quantityStep,
             priceStep: minimum.priceStep,
+            referencePrice: minimum.referencePrice,
           };
         }
       }
     },
+
+    async calculateMinimumOrderAtDrop(
+      exchangeId,
+      symbol,
+      dropPercent,
+    ) {
+      if (
+        !Number.isFinite(dropPercent) ||
+        dropPercent < 0 ||
+        dropPercent >= 100
+      ) {
+        throw new Error(
+          "DCA drop percentage must be between 0 and 100",
+        );
+      }
+
+      /*
+       * First load the normal exchange-normalized rules. This gives us
+       * the current market/reference price without exposing any
+       * exchange-specific rule logic to the DCA layer.
+       */
+      const baseRules = await this.getSymbolRules(
+        exchangeId,
+        symbol,
+      );
+
+      const referencePrice =
+        baseRules.referencePrice *
+        (1 - dropPercent / 100);
+
+      if (
+        !Number.isFinite(referencePrice) ||
+        referencePrice <= 0
+      ) {
+        throw new Error(
+          `Invalid DCA reference price for ${symbol} at ${dropPercent}% drop`,
+        );
+      }
+
+      /*
+       * Re-run the same exchange-specific normalization with only the
+       * reference price overridden. This preserves every original
+       * quantity, market-quantity, price, quote-amount, notional,
+       * precision, step, min/max and market-order rule.
+       */
+      return this.getSymbolRules(
+        exchangeId,
+        symbol,
+        referencePrice,
+      );
+    }
   };
 }

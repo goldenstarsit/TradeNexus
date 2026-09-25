@@ -28,6 +28,7 @@ const exchanges = [
 export default function DcaStrategyPage() {
   const [activeTab, setActiveTab] = useState<Tab>("create");
   const [showConfiguration, setShowConfiguration] = useState(false);
+  const [editingDcaConfigId, setEditingDcaConfigId] = useState<number | null>(null);
   const [balanceMode, setBalanceMode] = useState("Live Mode");
   const [exchange, setExchange] = useState("binance");
   const [symbols, setSymbols] = useState<ExchangeSymbol[]>([]);
@@ -35,15 +36,109 @@ export default function DcaStrategyPage() {
   const [symbolsError, setSymbolsError] = useState<string | null>(null);
   const [executionMode, setExecutionMode] = useState("Maker Only");
   const [symbol, setSymbol] = useState("");
-  const [initialOrderAmount, setInitialOrderAmount] = useState("");
-  const [initialOrderMinimum, setInitialOrderMinimum] = useState<number | null>(null);
+  const [initialOrderAmount, setInitialOrderAmount] = useState("minQty");
   const [initialOrderCurrency, setInitialOrderCurrency] = useState("USDT");
-  const [initialOrderLoading, setInitialOrderLoading] = useState(false);
-  const [initialOrderError, setInitialOrderError] = useState<string | null>(null);
   const [takeProfit, setTakeProfit] = useState("1");
   const [stopLoss, setStopLoss] = useState("50");
+  type SavedDcaStrategy = {
+    strategyType: {
+      id: number;
+      strategy_type: string;
+    };
+    config: {
+      id: number;
+      strategy_id: string;
+      name: string;
+      balance_mode: "live" | "test";
+      balance_account_id: string;
+      exchange_id: string;
+      market_type: string;
+      symbol: string;
+      execution_mode: string;
+      initial_order_amount: string;
+      initial_order_currency: string;
+      take_profit_percent: string;
+      stop_loss_percent: string;
+      status: "active" | "paused" | "stopped";
+    };
+    orders: {
+      id: number;
+      dca_config_id: number;
+      position: number;
+      amount: string;
+      drop_percent: string;
+    }[];
+  };
+
+  const [savedDcaStrategies, setSavedDcaStrategies] =
+    useState<SavedDcaStrategy[]>([]);
+  const [savedDcaStrategiesLoading, setSavedDcaStrategiesLoading] =
+    useState(false);
+  const [savedDcaStrategiesError, setSavedDcaStrategiesError] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSavedDcaStrategies = async () => {
+      setSavedDcaStrategiesLoading(true);
+      setSavedDcaStrategiesError(null);
+
+      try {
+        const response = await fetch(
+          "/api/strategies/dca",
+          { cache: "no-store" },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Failed to load saved DCA strategies",
+          );
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setSavedDcaStrategies(
+          Array.isArray(data.strategies)
+            ? data.strategies
+            : [],
+        );
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        console.error(
+          "[DCA] Failed to load saved strategies:",
+          error,
+        );
+
+        setSavedDcaStrategiesError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load saved DCA strategies",
+        );
+      } finally {
+        if (active) {
+          setSavedDcaStrategiesLoading(false);
+        }
+      }
+    };
+
+    void loadSavedDcaStrategies();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const [dcaOrders, setDcaOrders] = useState<DcaOrder[]>([
-    { id: 1, amount: "", dropPercent: "1" },
+    { id: 1, amount: "minQty", dropPercent: "1" },
   ]);
 
   useEffect(() => {
@@ -53,7 +148,13 @@ export default function DcaStrategyPage() {
       setSymbolsLoading(true);
       setSymbolsError(null);
       setSymbols([]);
-      setSymbol("");
+
+      const savedEditSymbol =
+        editingDcaConfigId !== null ? symbol : "";
+
+      if (editingDcaConfigId === null) {
+        setSymbol("");
+      }
 
       try {
         const response = await fetch(
@@ -74,7 +175,18 @@ export default function DcaStrategyPage() {
           : [];
 
         setSymbols(loadedSymbols);
-        setSymbol(loadedSymbols[0]?.symbol ?? "");
+
+        if (
+          editingDcaConfigId !== null &&
+          savedEditSymbol &&
+          loadedSymbols.some(
+            (item: ExchangeSymbol) => item.symbol === savedEditSymbol,
+          )
+        ) {
+          setSymbol(savedEditSymbol);
+        } else if (editingDcaConfigId === null) {
+          setSymbol(loadedSymbols[0]?.symbol ?? "");
+        }
 
         if (loadedSymbols.length === 0) {
           setSymbolsError("No spot symbols are available for this exchange.");
@@ -99,206 +211,108 @@ export default function DcaStrategyPage() {
     return () => {
       cancelled = true;
     };
-  }, [exchange]);
+  }, [exchange, editingDcaConfigId]);
 
   const handleExchangeChange = (value: string) => {
     setExchange(value);
     setSymbol("");
-    setInitialOrderAmount("");
-    setInitialOrderMinimum(null);
+    setInitialOrderAmount("minQty");
     setInitialOrderCurrency("USDT");
-    setInitialOrderError(null);
   };
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
 
-    async function loadInitialOrderMinimum() {
-      if (!exchange || !symbol) {
-        setInitialOrderLoading(false);
-        setInitialOrderMinimum(null);
-        setInitialOrderAmount("");
-        setInitialOrderCurrency("USDT");
-        setInitialOrderError(null);
-        return;
-      }
 
-      const requestedExchange = exchange;
-      const requestedSymbol = symbol;
+  const sortDcaOrders = (orders: DcaOrder[]): DcaOrder[] =>
+    orders
+      .map((order, index) => ({ order, index }))
+      .sort((a, b) => {
+        const aDrop = Number.parseFloat(a.order.dropPercent);
+        const bDrop = Number.parseFloat(b.order.dropPercent);
 
-      setInitialOrderLoading(true);
-      setInitialOrderMinimum(null);
-      setInitialOrderAmount("");
-      setInitialOrderCurrency("USDT");
-      setInitialOrderError(null);
+        const aValid = Number.isFinite(aDrop);
+        const bValid = Number.isFinite(bDrop);
 
-      let lastError: unknown = null;
+        if (!aValid && !bValid) return a.index - b.index;
+        if (!aValid) return 1;
+        if (!bValid) return -1;
 
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
-        if (!active || controller.signal.aborted) return;
+        return aDrop - bDrop || a.index - b.index;
+      })
+      .map(({ order }) => order);
 
-        try {
-          const response = await fetch(
-            `/api/exchange-symbol-rules?exchange=${encodeURIComponent(
-              requestedExchange,
-            )}&symbol=${encodeURIComponent(requestedSymbol)}`,
-            {
-              cache: "no-store",
-              signal: controller.signal,
-            },
-          );
+  const addDcaOrder = async () => {
+    const newId =
+      dcaOrders.length > 0
+        ? Math.max(...dcaOrders.map((order) => order.id)) + 1
+        : 1;
 
-          const data = await response.json();
+    const dropPercent = String(dcaOrders.length + 1);
 
-          if (!response.ok) {
-            throw new Error(
-              data.error ||
-                `Failed to load minimum order amount for ${requestedSymbol}`,
-            );
-          }
+    setDcaOrders((orders) =>
+      sortDcaOrders([
+        ...orders,
+        {
+          id: newId,
+          amount: "minQty",
+          dropPercent,
+        },
+      ]),
+    );
 
-          const minimum = Number(data.minimumOrderAmount);
 
-          if (!Number.isFinite(minimum) || minimum <= 0) {
-            throw new Error(
-              `Exchange returned an invalid minimum order amount for ${requestedSymbol}`,
-            );
-          }
-
-          if (
-            !active ||
-            controller.signal.aborted ||
-            requestedExchange !== exchange ||
-            requestedSymbol !== symbol
-          ) {
-            return;
-          }
-
-          const currency =
-            typeof data.minimumOrderAmountCurrency === "string" &&
-            data.minimumOrderAmountCurrency.trim()
-              ? data.minimumOrderAmountCurrency.toUpperCase()
-              : typeof data.quoteAsset === "string" &&
-                  data.quoteAsset.trim()
-                ? data.quoteAsset.toUpperCase()
-                : "USDT";
-
-          setInitialOrderMinimum(minimum);
-          setInitialOrderCurrency(currency);
-          setInitialOrderAmount(String(minimum));
-          setDcaOrders((orders) =>
-            orders.map((order) => ({
-              ...order,
-              amount: formatUsdtValue(minimum * order.id),
-              dropPercent: order.dropPercent || String(order.id),
-            })),
-          );
-          setInitialOrderError(null);
-          setInitialOrderLoading(false);
-
-          return;
-        } catch (error) {
-          if (
-            controller.signal.aborted ||
-            !active
-          ) {
-            return;
-          }
-
-          lastError = error;
-
-          if (attempt < 2) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, 350),
-            );
-          }
-        }
-      }
-
-      if (!active || controller.signal.aborted) return;
-
-      setInitialOrderMinimum(null);
-      setInitialOrderAmount("");
-      setDcaOrders((orders) =>
-        orders.map((order) => ({
-          ...order,
-          amount: "",
-          dropPercent: order.dropPercent || String(order.id),
-        })),
-      );
-      setInitialOrderLoading(false);
-      setInitialOrderError(
-        lastError instanceof Error
-          ? lastError.message
-          : "Failed to load minimum order amount",
-      );
-    }
-
-    void loadInitialOrderMinimum();
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [exchange, symbol]);
-
-  const initialOrderValue = Number(initialOrderAmount);
-  const formatUsdtValue = (value: number): string =>
-    Number.isFinite(value)
-      ? value.toFixed(8).replace(/\.?0+$/, "")
-      : "0";
-
-  const formattedInitialOrderMinimum =
-    initialOrderMinimum !== null
-      ? formatUsdtValue(initialOrderMinimum)
-      : null;
-
-  const initialOrderBelowMinimum =
-    initialOrderMinimum !== null &&
-    initialOrderAmount !== "" &&
-    (!Number.isFinite(initialOrderValue) ||
-      initialOrderValue < initialOrderMinimum);
-
-  const addDcaOrder = () => {
-    setDcaOrders((orders) => [
-      ...orders,
-      {
-        id: orders.length + 1,
-        amount:
-          initialOrderMinimum !== null
-            ? formatUsdtValue(initialOrderMinimum * (orders.length + 1))
-            : "",
-        dropPercent: String(orders.length + 1),
-      },
-    ]);
   };
 
   const removeDcaOrder = (id: number) => {
     setDcaOrders((orders) =>
-      orders
-        .filter((order) => order.id !== id)
-        .map((order, index) => ({
-          ...order,
-          id: index + 1,
-          amount:
-            initialOrderMinimum !== null
-              ? formatUsdtValue(initialOrderMinimum * (index + 1))
-              : order.amount,
-          dropPercent: order.dropPercent || String(index + 1),
-        })),
+      sortDcaOrders(orders.filter((order) => order.id !== id)),
     );
   };
 
   const updateDcaOrder = (
     id: number,
-    changes: { amount?: string; dropPercent?: string },
+    field: "amount" | "dropPercent",
+    value: string,
   ) => {
     setDcaOrders((orders) =>
-      orders.map((order) =>
-        order.id === id ? { ...order, ...changes } : order,
+      sortDcaOrders(
+        orders.map((order) =>
+          order.id === id
+            ? { ...order, [field]: value }
+            : order,
+        ),
       ),
     );
+  };
+
+  const editDcaStrategy = (strategy: SavedDcaStrategy) => {
+    const config = strategy.config;
+
+    setEditingDcaConfigId(config.id);
+    setBalanceMode(
+      config.balance_mode === "live"
+        ? "Live Mode"
+        : "Test Mode",
+    );
+    setExchange(config.exchange_id);
+    setExecutionMode(config.execution_mode);
+    setSymbol(config.symbol);
+    setInitialOrderAmount(config.initial_order_amount);
+    setInitialOrderCurrency(config.initial_order_currency);
+    setTakeProfit(config.take_profit_percent);
+    setStopLoss(config.stop_loss_percent);
+
+    setDcaOrders(
+      sortDcaOrders(
+        strategy.orders.map((order) => ({
+          id: order.id,
+          amount: order.amount,
+          dropPercent: order.drop_percent,
+        })),
+      ),
+    );
+
+    setShowConfiguration(true);
+    setActiveTab("create");
   };
 
   return (
@@ -460,13 +474,7 @@ export default function DcaStrategyPage() {
                   <div className="strategy-order-section">
                     <div className="strategy-order-title">
                       <h3>Initial Order</h3>
-                      <span>
-                        {initialOrderLoading
-                          ? "Loading minimum..."
-                          : initialOrderMinimum !== null
-                            ? `Minimum ${formattedInitialOrderMinimum} ${initialOrderCurrency}`
-                            : "Minimum unavailable"}
-                      </span>
+                      <span>Order amount</span>
                     </div>
 
                     <div className="strategy-config-field">
@@ -475,32 +483,12 @@ export default function DcaStrategyPage() {
                       </label>
                       <input
                         id="initial-order"
-                        type="number"
-                        min={initialOrderMinimum ?? 0}
-                        step="any"
+                        type="text"
                         value={initialOrderAmount}
-                        disabled={initialOrderLoading || initialOrderMinimum === null}
                         onChange={(event) => {
                           setInitialOrderAmount(event.target.value);
-                          setInitialOrderError(null);
-                        }}
-                        aria-invalid={
-                          initialOrderBelowMinimum || initialOrderError
-                            ? true
-                            : undefined
-                        }
+                                              }}
                       />
-                      {initialOrderBelowMinimum && initialOrderMinimum !== null && (
-                        <p className="strategy-field-description">
-                          Minimum allowed is {formattedInitialOrderMinimum}{" "}
-                          {initialOrderCurrency}.
-                        </p>
-                      )}
-                      {initialOrderError && (
-                        <p className="strategy-field-description">
-                          {initialOrderError}
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -511,12 +499,12 @@ export default function DcaStrategyPage() {
                     </div>
 
                     <div className="strategy-dca-list">
-                      {dcaOrders.map((order) => (
+                      {sortDcaOrders(dcaOrders).map((order) => (
                         <div className="strategy-dca-row" key={order.id}>
                           <div className="strategy-dca-combined-field">
                             <div className="strategy-dca-combined-item">
                               <label htmlFor={`dca-amount-${order.id}`}>
-                                Minimum Order Quantity
+                                Min Order Qty
                               </label>
                               <input
                                 id={`dca-amount-${order.id}`}
@@ -525,9 +513,11 @@ export default function DcaStrategyPage() {
                                 step="0.01"
                                 value={order.amount}
                                 onChange={(event) =>
-                                  updateDcaOrder(order.id, {
-                                    amount: event.target.value,
-                                  })
+                                  updateDcaOrder(
+                                    order.id,
+                                    "amount",
+                                    event.target.value,
+                                  )
                                 }
                                 placeholder="Amount in USDT"
                               />
@@ -546,9 +536,11 @@ export default function DcaStrategyPage() {
                                 step="0.01"
                                 value={order.dropPercent}
                                 onChange={(event) =>
-                                  updateDcaOrder(order.id, {
-                                    dropPercent: event.target.value,
-                                  })
+                                  updateDcaOrder(
+                                    order.id,
+                                    "dropPercent",
+                                    event.target.value,
+                                  )
                                 }
                                 placeholder="Drop"
                               />
@@ -637,10 +629,17 @@ export default function DcaStrategyPage() {
                     type="button"
                     onClick={async () => {
                       try {
+                        const isEditing =
+                          editingDcaConfigId !== null;
+
                         const response = await fetch(
-                          "/api/strategies/dca-submit-debug",
+                          isEditing
+                            ? `/api/strategies/dca?configId=${encodeURIComponent(
+                                editingDcaConfigId,
+                              )}`
+                            : "/api/strategies/dca",
                           {
-                            method: "POST",
+                            method: isEditing ? "PUT" : "POST",
                             headers: {
                               "Content-Type": "application/json",
                             },
@@ -653,40 +652,59 @@ export default function DcaStrategyPage() {
                               initialOrderCurrency,
                               takeProfit,
                               stopLoss,
-                              dcaOrders: dcaOrders.map((order, index) => [
-                                `DCA ${index + 1}`,
-                                order.amount,
-                                order.dropPercent,
-                              ]),
+                              dcaOrders: sortDcaOrders(
+                                dcaOrders,
+                              ).map((order) => ({
+                                amount: order.amount,
+                                dropPercent: order.dropPercent,
+                              })),
                             }),
                           },
                         );
 
+                        const data = await response.json();
+
                         if (!response.ok) {
-                          throw new Error("DCA configuration submit failed");
+                          throw new Error(
+                            data.error ||
+                              (isEditing
+                                ? "DCA configuration update failed"
+                                : "DCA configuration save failed"),
+                          );
                         }
 
-                        console.log("===== DCA CONFIGURATION SUBMIT =====");
-                        console.log("Balance Mode:", balanceMode);
-                        console.log("Exchange:", exchange);
-                        console.log("Execution Mode:", executionMode);
-                        console.log("Symbol:", symbol);
-                        console.log(
-                          "Initial Order Amount:",
-                          initialOrderAmount,
-                          initialOrderCurrency,
-                        );
-                        console.log("Take Profit:", takeProfit, "%");
-                        console.log("Stop Loss:", stopLoss, "%");
-                        console.log(
-                          "DCA:",
-                          dcaOrders.map((order, index) => [
-                            `DCA ${index + 1}`,
-                            order.amount,
-                            order.dropPercent,
-                          ]),
-                        );
-                        console.log("====================================");
+                        const updatedStrategy =
+                          data.strategy as SavedDcaStrategy;
+
+                        if (isEditing) {
+                          setSavedDcaStrategies((current) =>
+                            current.map((strategy) =>
+                              strategy.config.id ===
+                              editingDcaConfigId
+                                ? updatedStrategy
+                                : strategy,
+                            ),
+                          );
+
+                          console.log(
+                            "[DCA] Strategy updated successfully:",
+                            updatedStrategy,
+                          );
+                        } else {
+                          setSavedDcaStrategies((current) => [
+                            ...current,
+                            updatedStrategy,
+                          ]);
+
+                          console.log(
+                            "[DCA] Strategy saved successfully:",
+                            updatedStrategy,
+                          );
+                        }
+
+                        setEditingDcaConfigId(null);
+                        setShowConfiguration(false);
+                        setActiveTab("list");
                       } catch (error) {
                         console.error(
                           "[DCA CONFIGURATION SUBMIT]",
@@ -695,7 +713,9 @@ export default function DcaStrategyPage() {
                       }
                     }}
                   >
-                    Save Strategy
+                    {editingDcaConfigId !== null
+                      ? "Update Strategy"
+                      : "Save Strategy"}
                     <span>→</span>
                   </button>
                 </div>
@@ -710,106 +730,166 @@ export default function DcaStrategyPage() {
             </div>
 
             <div className="strategy-table-wrapper">
-              <table className="strategy-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Symbol</th>
-                    <th>Balance Mode</th>
-                    <th>Exchange</th>
-                    <th>Execution Mode</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>1</td>
-                    <td>BTCUSDT</td>
-                    <td>Live Mode</td>
-                    <td>Binance</td>
-                    <td>Maker Only</td>
-                    <td>
-                      <div className="strategy-row-actions">
-                        <button
-                          className="strategy-icon-action edit"
-                          type="button"
-                          aria-label="Edit strategy 1"
-                          title="Edit"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0 0-3L18.5 4.5a2.12 2.12 0 0 0-3 0L4 16v4Z" />
-                            <path d="m14.5 5.5 4 4" />
-                          </svg>
-                        </button>
-                        <button
-                          className="strategy-icon-action remove"
-                          type="button"
-                          aria-label="Remove strategy 1"
-                          title="Remove"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 7h16" />
-                            <path d="M10 11v6M14 11v6" />
-                            <path d="M6 7l1 13h10l1-13" />
-                            <path d="M9 7V4h6v3" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>2</td>
-                    <td>ETHUSDT</td>
-                    <td>Test Mode</td>
-                    <td>MEXC</td>
-                    <td>Hybrid</td>
-                    <td>
-                      <div className="strategy-row-actions">
-                        <button className="strategy-icon-action edit" type="button" aria-label="Edit strategy 2" title="Edit">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0 0-3L18.5 4.5a2.12 2.12 0 0 0-3 0L4 16v4Z" /><path d="m14.5 5.5 4 4" /></svg>
-                        </button>
-                        <button className="strategy-icon-action remove" type="button" aria-label="Remove strategy 2" title="Remove">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>3</td>
-                    <td>SOLUSDT</td>
-                    <td>Live Mode</td>
-                    <td>HTX</td>
-                    <td>Taker Only</td>
-                    <td>
-                      <div className="strategy-row-actions">
-                        <button className="strategy-icon-action edit" type="button" aria-label="Edit strategy 3" title="Edit">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0 0-3L18.5 4.5a2.12 2.12 0 0 0-3 0L4 16v4Z" /><path d="m14.5 5.5 4 4" /></svg>
-                        </button>
-                        <button className="strategy-icon-action remove" type="button" aria-label="Remove strategy 3" title="Remove">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>4</td>
-                    <td>BNBUSDT</td>
-                    <td>Test Mode</td>
-                    <td>Binance</td>
-                    <td>Maker Only</td>
-                    <td>
-                      <div className="strategy-row-actions">
-                        <button className="strategy-icon-action edit" type="button" aria-label="Edit strategy 4" title="Edit">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0 0-3L18.5 4.5a2.12 2.12 0 0 0-3 0L4 16v4Z" /><path d="m14.5 5.5 4 4" /></svg>
-                        </button>
-                        <button className="strategy-icon-action remove" type="button" aria-label="Remove strategy 4" title="Remove">
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              {savedDcaStrategiesLoading ? (
+                <div className="strategy-empty-state">
+                  Loading saved DCA strategies...
+                </div>
+              ) : savedDcaStrategiesError ? (
+                <div className="strategy-empty-state">
+                  {savedDcaStrategiesError}
+                </div>
+              ) : savedDcaStrategies.length === 0 ? (
+                <div className="strategy-empty-state">
+                  No saved DCA strategies found.
+                </div>
+              ) : (
+                <table className="strategy-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Symbol</th>
+                      <th>Balance Mode</th>
+                      <th>Exchange</th>
+                      <th>Execution Mode</th>
+                      <th>Initial Order</th>
+                      <th>Take Profit</th>
+                      <th>Stop Loss</th>
+                      <th>DCA Orders</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {savedDcaStrategies.map((strategy, index) => (
+                      <tr key={strategy.config.id}>
+                        <td>{index + 1}</td>
+                        <td>{strategy.config.symbol}</td>
+                        <td>
+                          {strategy.config.balance_mode === "live"
+                            ? "Live Mode"
+                            : "Test Mode"}
+                        </td>
+                        <td>
+                          {strategy.config.exchange_id.toUpperCase()}
+                        </td>
+                        <td>{strategy.config.execution_mode}</td>
+                        <td>
+                          {strategy.config.initial_order_amount}{" "}
+                          {strategy.config.initial_order_currency}
+                        </td>
+                        <td>
+                          {strategy.config.take_profit_percent}%
+                        </td>
+                        <td>
+                          {strategy.config.stop_loss_percent}%
+                        </td>
+                        <td>
+                          <div className="strategy-dca-summary">
+                            {strategy.orders.map((order) => (
+                              <div
+                                key={order.id}
+                                className="strategy-dca-summary-row"
+                              >
+                                DCA {order.position}:{" "}
+                                {order.amount} USDT @{" "}
+                                {order.drop_percent}%
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="strategy-row-actions">
+                            <button
+                              className="strategy-icon-action edit"
+                              type="button"
+                              aria-label={`Edit strategy ${index + 1}`}
+                              title="Edit"
+                              onClick={() =>
+                                editDcaStrategy(strategy)
+                              }
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0 0-3L18.5 4.5a2.12 2.12 0 0 0-3 0L4 16v4Z" />
+                                <path d="m14.5 5.5 4 4" />
+                              </svg>
+                            </button>
+                            <button
+                              className="strategy-icon-action remove"
+                              type="button"
+                              aria-label={`Remove strategy ${index + 1}`}
+                              title="Remove"
+                              onClick={async () => {
+                                const confirmed =
+                                  window.confirm(
+                                    `Delete ${strategy.config.symbol} DCA strategy?`,
+                                  );
+
+                                if (!confirmed) {
+                                  return;
+                                }
+
+                                try {
+                                  const response =
+                                    await fetch(
+                                      `/api/strategies/dca?configId=${encodeURIComponent(
+                                        strategy.config.id,
+                                      )}`,
+                                      {
+                                        method: "DELETE",
+                                      },
+                                    );
+
+                                  const data =
+                                    await response.json();
+
+                                  if (!response.ok) {
+                                    throw new Error(
+                                      data.error ||
+                                        "Failed to delete DCA strategy",
+                                    );
+                                  }
+
+                                  setSavedDcaStrategies(
+                                    (current) =>
+                                      current.filter(
+                                        (item) =>
+                                          item.config.id !==
+                                          strategy.config.id,
+                                      ),
+                                  );
+                                } catch (error) {
+                                  console.error(
+                                    "[DCA] Failed to delete strategy:",
+                                    error,
+                                  );
+
+                                  window.alert(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Failed to delete DCA strategy",
+                                  );
+                                }
+                              }}
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                              >
+                                <path d="M4 7h16" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M6 7l1 13h10l1-13" />
+                                <path d="M9 7V4h6v3" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )}
@@ -817,3 +897,4 @@ export default function DcaStrategyPage() {
     </main>
   );
 }
+

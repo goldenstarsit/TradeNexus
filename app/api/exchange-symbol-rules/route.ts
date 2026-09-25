@@ -19,6 +19,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const exchange = params.get("exchange");
   const symbol = params.get("symbol")?.trim().toUpperCase();
+  const dropParam = params.get("dropPercent");
 
   if (!exchange || !isExchangeId(exchange)) {
     return NextResponse.json(
@@ -35,6 +36,52 @@ export async function GET(request: Request) {
       { error: "Symbol is required" },
       { status: 400 },
     );
+  }
+
+  const dropPercent =
+    dropParam === null ? null : Number(dropParam);
+
+  if (
+    dropPercent !== null &&
+    (!Number.isFinite(dropPercent) ||
+      dropPercent < 0 ||
+      dropPercent >= 100)
+  ) {
+    return NextResponse.json(
+      { error: "dropPercent must be between 0 and 100" },
+      { status: 400 },
+    );
+  }
+
+  if (dropPercent !== null) {
+    try {
+      const rules =
+        await provider.calculateMinimumOrderAtDrop(
+          exchange as ExchangeId,
+          symbol,
+          dropPercent,
+        );
+
+      return NextResponse.json({
+        exchange,
+        ...rules,
+        dropPercent,
+        cached: false,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to calculate DCA minimum order amount",
+          exchange,
+          symbol,
+          dropPercent,
+        },
+        { status: 502 },
+      );
+    }
   }
 
   const key = `${exchange}:${symbol}`;

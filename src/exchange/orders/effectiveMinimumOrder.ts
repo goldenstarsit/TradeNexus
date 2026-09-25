@@ -8,6 +8,11 @@ export interface EffectiveMinimumOrderRequest {
   readonly symbol: string;
   readonly side: OrderSide;
   readonly orderType: OrderType;
+  /**
+   * Optional price override used when the minimum order must be
+   * evaluated at a specific execution/reference price, such as a DCA drop.
+   */
+  readonly referencePrice?: number;
 }
 
 export interface QuantityRule {
@@ -319,8 +324,11 @@ export function calculateEffectiveMinimumOrder(
     );
   }
 
+  const referencePrice =
+    request.referencePrice ?? rules.referencePrice;
+
   assertPositive(
-    rules.referencePrice,
+    referencePrice,
     "referencePrice",
   );
 
@@ -360,13 +368,13 @@ export function calculateEffectiveMinimumOrder(
   const minimumQuantityFromNotional =
     minimumNotional > 0
       ? minimumNotional /
-        rules.referencePrice
+        referencePrice
       : 0;
 
   const minimumQuantityFromQuote =
     minimumQuoteAmount > 0
       ? minimumQuoteAmount /
-        rules.referencePrice
+        referencePrice
       : 0;
 
   const requiredQuantity =
